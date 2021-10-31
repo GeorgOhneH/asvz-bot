@@ -6,6 +6,7 @@ use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
 use futures::{FutureExt, TryFutureExt};
 use std::error::Error;
+use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
@@ -20,9 +21,51 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::{trace};
 
 #[derive(Debug, Clone)]
 pub struct LessonID(String);
+
+#[derive(Clone, Debug)]
+pub struct Username(String);
+
+impl Username {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+impl FromStr for Username {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            Err("You need to supply a non empty username".to_string())
+        } else {
+            Ok(Self(s.to_string()))
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Password(String);
+
+impl Password {
+    pub fn as_str_dangerous(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl FromStr for Password {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            Err("You need to supply a non empty password".to_string())
+        } else {
+            Ok(Self(s.to_string()))
+        }
+    }
+}
 
 impl LessonID {
     pub fn as_str(&self) -> &str {
@@ -35,22 +78,29 @@ impl FromStr for LessonID {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("You need to supply an id".to_string())
+            Err("You need to supply a non empty id".to_string())
         } else {
             Ok(Self(s.to_string()))
         }
     }
 }
 
-#[derive(BotCommand, Debug)]
+#[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 pub enum Command {
     #[command(description = "same as help.")]
     Start,
     #[command(description = "display this text.")]
     Help,
-    #[command(description = "Subscribe to a single lesson.")]
-    Subscribe(LessonID),
+    #[command(description = "You get notified when a lesson starts or a place becomes available.")]
+    Notify(LessonID),
+    #[command(description = "You get enrolled when a lesson starts or a place becomes available.")]
+    Enroll(LessonID),
+    #[command(description = "login.", parse_with = "split")]
+    Login {
+        username: Username,
+        password: Password,
+    },
     #[command(description = "Show your current Jobs.")]
     ListJobs,
     #[command(description = "Cancel all Jobs.")]
@@ -72,9 +122,15 @@ impl Command {
                 cx.answer(Command::descriptions()).await?;
                 Ok(None)
             }
-            Command::Subscribe(id) => {
-                cx.answer(format!("Your username is @{}.", "ef")).await?;
-                Ok(Some(Action::new(JobKind::Notify(id), user_id, cx)))
+            Command::Notify(id) => Ok(Some(Action::new(ActionKind::Notify(id), user_id, cx))),
+            Command::Enroll(id) => Ok(Some(Action::new(ActionKind::Enroll(id), user_id, cx))),
+            Command::Login { username, password } => {
+                cx.delete_message().await?;
+                Ok(Some(Action::new(
+                    ActionKind::Login(username, password),
+                    user_id,
+                    cx,
+                )))
             }
             Command::ListJobs => Ok(Some(Action::new(ActionKind::ListJobs, user_id, cx))),
             Command::CancelAllJobs => Ok(Some(Action::new(ActionKind::CancelAll, user_id, cx))),
@@ -126,6 +182,7 @@ fn extract_cmd_id(
     match &cx.update.kind {
         MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
             (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
+                trace!("Got new telegram msg from {}: {}", user.id, &txt.text);
                 match Command::parse(&txt.text, BOT_NAME.to_string()) {
                     Ok(cmd) => Some(Ok((cmd, user.id))),
                     Err(err) => Some(Err(err)),

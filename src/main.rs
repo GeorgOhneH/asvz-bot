@@ -2,17 +2,21 @@
 #![allow(dead_code)]
 #![feature(let_else)]
 
+mod asvz;
 mod cmd;
 mod state;
-mod asvz;
 
+use std::collections::HashMap;
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
+use crate::asvz::login::asvz_login;
 use crate::state::State;
 use cmd::handle_update;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
 use futures::{FutureExt, TryFutureExt};
+use regex::Regex;
+use reqwest::Client;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::future::Future;
@@ -28,6 +32,9 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::{info, Level};
+use tracing_subscriber::{EnvFilter, Layer};
+use url::Url;
 
 static BOT_NAME: &str = "asvz_bot";
 
@@ -37,8 +44,23 @@ async fn main() {
 }
 
 async fn run() {
-    teloxide::enable_logging!();
-    log::info!("Starting simple_commands_bot...");
+    // let client = Client::builder().cookie_store(true).build().unwrap();
+    // let username = std::env::var("USERNAME").unwrap();
+    // let password = std::env::var("PASSWORD").unwrap();
+    //
+    // asvz_login(&client, &username, &password).await.unwrap();
+    // asvz_login(&client, &username, &password).await.unwrap();
+    // return;
+    let filter = EnvFilter::from_default_env()
+        .add_directive("trace".parse().unwrap())
+        .add_directive("hyper=info".parse().unwrap())
+        .add_directive("my_crate=trace".parse().unwrap());
+    let subscriber = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("Unable to make logging");
+
+    info!("Starting Bot");
 
     let bot = Bot::from_env().auto_send();
     let mut state = State::new();

@@ -1,4 +1,5 @@
 use thiserror::Error;
+use url::ParseError;
 use crate::asvz::api::lesson::LessonError;
 
 #[derive(Error, Debug)]
@@ -9,4 +10,10 @@ pub enum AsvzError {
     Lesson(LessonError),
     #[error("what?")]
     UnexpectedFormat,
+}
+
+impl From<url::ParseError> for AsvzError {
+    fn from(_: ParseError) -> Self {
+        Self::UnexpectedFormat
+    }
 }

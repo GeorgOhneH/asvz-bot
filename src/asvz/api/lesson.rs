@@ -1,12 +1,30 @@
-use std::fmt::{Display, Formatter};
+use chrono::DateTime;
+use chrono::ParseError;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::fmt::{Display, Formatter};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LessonData {
     pub data: Data,
+}
+
+impl LessonData {
+    fn str_to_timestamp(date: &str) -> Result<i64, ParseError> {
+        DateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%z").map(|d| {
+            let timestamp = d.timestamp();
+            assert!(timestamp >= 0);
+            timestamp
+        })
+    }
+    pub fn enroll_until_timestamp(&self) -> Result<i64, ParseError> {
+        Self::str_to_timestamp(&self.data.enrollment_until)
+    }
+    pub fn enroll_from_timestamp(&self) -> Result<i64, ParseError> {
+        Self::str_to_timestamp(&self.data.enrollment_from)
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,7 +42,7 @@ pub struct Data {
     pub ends: String,
     pub cancellation_date: Value,
     pub cancellation_reason: Value,
-    pub participants_min: i64,
+    pub participants_min: Option<i64>,
     pub participants_max: i64,
     pub participant_count: i64,
     pub instructors: Vec<Instructor>,
@@ -41,7 +59,7 @@ pub struct Data {
     pub sport_name: String,
     pub sport_url: String,
     pub title: String,
-    pub location: String,
+    pub location: Option<String>,
     pub web_registration_type: i64,
     pub meeting_point_info: Value,
     pub meeting_point_coordinates: Value,
@@ -96,4 +114,3 @@ pub struct LessonError {
 pub struct Error {
     pub message: String,
 }
-
