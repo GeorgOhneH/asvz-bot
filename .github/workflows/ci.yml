@@ -6,38 +6,6 @@ on:
       - main
 
 jobs:
-
-  test:
-    name: Test
-    needs: [style]
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        build: [stable, beta, nightly]
-        include:
-          - build: beta
-            rust: beta
-          - build: nightly
-            rust: nightly
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust || 'stable' }}
-          profile: minimal
-          override: true
-
-      - name: Build debug
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: ${{ matrix.features }}
-
   deploy:
     name: deploy
     needs: [test]
