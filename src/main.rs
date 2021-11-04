@@ -65,16 +65,18 @@ async fn run() {
 
     let mut update_handles = FuturesUnordered::new();
 
+    let (action_tx, mut action_rx) = tokio::sync::mpsc::channel(512);
+
+
     loop {
         tokio::select! {
             Some(update) = bot_stream.next() => {
-                update_handles.push(handle_update(update.unwrap(), bot.clone()));
+                update_handles.push(handle_update(update.unwrap(), bot.clone(), action_tx.clone()));
             },
-            Some(action) = update_handles.next() => {
-                if let Some(ac) = action.unwrap() {
-                    state.handle_action(ac)
-                }
-            },
+            Some(_) = update_handles.next() => (),
+            Some(action) = action_rx.recv() => {
+                state.handle_action(action)
+            }
             Some(result) = state.next() => {
                 match result {
                     Ok(action) => {

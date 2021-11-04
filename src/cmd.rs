@@ -22,6 +22,7 @@ use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{trace};
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Clone)]
 pub struct LessonID(String);
@@ -34,6 +35,7 @@ impl Username {
         self.0.as_str()
     }
 }
+
 impl FromStr for Username {
     type Err = String;
 
@@ -112,36 +114,46 @@ impl Command {
         self,
         cx: UpdateWithCx<AutoSend<Bot>, Message>,
         user_id: i64,
-    ) -> Result<Option<Action>, RequestError> {
-        match self {
+        action_tx: Sender<Action>,
+    ) -> Result<(), RequestError> {
+        let action = match self {
             Command::Start => {
                 cx.answer(Command::descriptions()).await?;
-                Ok(None)
+                None
             }
             Command::Help => {
                 cx.answer(Command::descriptions()).await?;
-                Ok(None)
+                None
             }
-            Command::Notify(id) => Ok(Some(Action::new(ActionKind::Notify(id), user_id, cx))),
-            Command::Enroll(id) => Ok(Some(Action::new(ActionKind::Enroll(id), user_id, cx))),
+            Command::Notify(id) => {
+                Some(Action::new(ActionKind::Notify(id), user_id, cx))
+            }
+            Command::Enroll(id) => {
+                Some(Action::new(ActionKind::Enroll(id), user_id, cx))
+            }
             Command::Login { username, password } => {
                 cx.delete_message().await?;
-                Ok(Some(Action::new(
+                Some(Action::new(
                     ActionKind::Login(username, password),
                     user_id,
                     cx,
-                )))
+                ))
             }
-            Command::ListJobs => Ok(Some(Action::new(ActionKind::ListJobs, user_id, cx))),
-            Command::CancelAllJobs => Ok(Some(Action::new(ActionKind::CancelAll, user_id, cx))),
+            Command::ListJobs => Some(Action::new(ActionKind::ListJobs, user_id, cx)),
+            Command::CancelAllJobs => Some(Action::new(ActionKind::CancelAll, user_id, cx)),
+        };
+        if let Some(action) = action {
+            action_tx.send(action).await.expect("Receiver should always be alive");
         }
+
+        Ok(())
     }
 }
 
 async fn handle_cmd_err(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
     err: ParseError,
-) -> Result<Option<Action>, RequestError> {
+) -> Result<(), RequestError> {
     match err {
         ParseError::UnknownCommand(_) => cx.answer("Unknown Command").await?,
         ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
@@ -158,7 +170,7 @@ async fn handle_cmd_err(
                 "Expected {} arguments (got {}). msg: {}",
                 expected, found, message
             ))
-            .await?
+                .await?
         }
         ParseError::TooManyArguments {
             expected,
@@ -169,11 +181,11 @@ async fn handle_cmd_err(
                 "Expected {} arguments (got {}). msg: {}",
                 expected, found, message
             ))
-            .await?
+                .await?
         }
         ParseError::Custom(err) => cx.answer(format!("{}", err)).await?,
     };
-    Ok(None)
+    Ok(())
 }
 
 fn extract_cmd_id(
@@ -196,26 +208,28 @@ fn extract_cmd_id(
 
 async fn _handle_update(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
-) -> Result<Option<Action>, RequestError> {
+    action_tx: Sender<Action>,
+) -> Result<(), RequestError> {
     match extract_cmd_id(&cx) {
-        Some(Ok((cmd, id))) => cmd.answer(cx, id).await,
+        Some(Ok((cmd, id))) => cmd.answer(cx, id, action_tx).await,
         Some(Err(err)) => handle_cmd_err(cx, err).await,
-        None => Ok(None),
+        None => Ok(()),
     }
 }
 
 pub async fn handle_update(
     update: Update,
     bot: AutoSend<Bot>,
-) -> Result<Option<Action>, RequestError> {
+    action_tx: Sender<Action>,
+) -> Result<(), RequestError> {
     match update.kind {
         UpdateKind::Message(msg) => {
             _handle_update(UpdateWithCx {
                 requester: bot,
                 update: msg,
-            })
-            .await
+            }, action_tx)
+                .await
         }
-        _ => Ok(None),
+        _ => Ok(()),
     }
 }
