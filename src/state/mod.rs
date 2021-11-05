@@ -34,7 +34,7 @@ use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
-static START_MSG: &str = r"Hello Welcome to the asvz bot.
+static START_MSG: &str = r"Hello, Welcome to the asvz bot.
 This Bot allows you to get notified/enrolled when a lesson starts or a place open up.
 See /help for all awailable commands";
 

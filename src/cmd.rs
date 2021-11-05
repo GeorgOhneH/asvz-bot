@@ -21,7 +21,6 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::sync::mpsc::Sender;
 use tokio::task::{JoinError, JoinHandle};
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::trace;
 
 #[derive(Debug, Clone)]
