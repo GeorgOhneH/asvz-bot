@@ -5,6 +5,7 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
+use crate::job_fns::ExistStatus;
 use crate::utils::ret_on_err;
 use crate::utils::{current_timestamp, reply, CountLoop};
 use chrono::DateTime;
@@ -32,11 +33,11 @@ use tracing::{debug, instrument, trace};
 
 #[instrument(skip(cx, password))]
 pub async fn enroll(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
     id: LessonID,
     username: Username,
     password: Password,
-) -> Result<(), RequestError> {
+) -> Result<ExistStatus, RequestError> {
     let client = Client::builder().cookie_store(true).build().unwrap();
     let enroll_url = format!(
         "https://schalter.asvz.ch/tn-api/api/Lessons/{}/enroll",
@@ -44,13 +45,12 @@ pub async fn enroll(
     );
     let mut token = ret_on_err!(
         asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
-        cx,
         "Unable to log in"
     );
 
-    let data = ret_on_err!(lesson_data(&client, &id).await, cx);
-    let until_ts = ret_on_err!(data.enroll_until_timestamp(), cx);
-    let from_ts = ret_on_err!(data.enroll_from_timestamp(), cx);
+    let data = ret_on_err!(lesson_data(&client, &id).await);
+    let until_ts = ret_on_err!(data.enroll_until_timestamp());
+    let from_ts = ret_on_err!(data.enroll_from_timestamp());
 
     let current_ts = current_timestamp();
     if from_ts > current_ts {
@@ -62,7 +62,6 @@ pub async fn enroll(
 
         token = ret_on_err!(
             asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
-            cx,
             "Unable to log in"
         );
         trace!("refreshed token");
@@ -80,8 +79,7 @@ pub async fn enroll(
                     .bearer_auth(&token)
                     .json(&())
                     .send()
-                    .await,
-                cx
+                    .await
             );
             trace!(
                 "enroll response with status code {}",
@@ -90,13 +88,12 @@ pub async fn enroll(
 
             match enroll_response.status() {
                 StatusCode::CREATED => {
-                    reply!(cx, "I successfully enrolled you\nStopping Job").await?;
-                    return Ok(());
+                    return Ok(ExistStatus::success("I successfully enrolled you"));
                 }
                 StatusCode::UNPROCESSABLE_ENTITY => (),
                 code => {
-                    reply!(cx, "Got unexpected status code: {}\nStopping Job", code).await?;
-                    return Ok(());
+                    let msg = format!("Got unexpected status code: {}", code);
+                    return Ok(ExistStatus::failure(msg));
                 }
             }
         }
@@ -106,8 +103,7 @@ pub async fn enroll(
         let current_ts = current_timestamp();
 
         if current_ts > until_ts {
-            reply!(cx, "You can no longer enroll\nStopping this Job").await?;
-            return Ok(());
+            return Ok(ExistStatus::failure("You can no longer enroll"));
         }
         let enroll_response = ret_on_err!(
             client
@@ -115,8 +111,7 @@ pub async fn enroll(
                 .bearer_auth(&token)
                 .json(&())
                 .send()
-                .await,
-            cx
+                .await
         );
 
         trace!(
@@ -126,20 +121,18 @@ pub async fn enroll(
 
         match enroll_response.status() {
             StatusCode::CREATED => {
-                cx.answer("Successfully enrolled you\nClosing Job").await?;
-                return Ok(());
+                return Ok(ExistStatus::success("I successfully enrolled you"));
             }
             StatusCode::UNAUTHORIZED => {
                 token = ret_on_err!(
                     asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
-                    cx,
                     "Unable to log in"
                 );
             }
             StatusCode::UNPROCESSABLE_ENTITY => (),
             code => {
-                reply!(cx, "Got unexpected status code: {}\nStopping Job", code).await?;
-                return Ok(());
+                let msg = format!("Got unexpected status code: {}", code);
+                return Ok(ExistStatus::failure(msg));
             }
         }
 

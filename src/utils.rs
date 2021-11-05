@@ -29,22 +29,21 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
 macro_rules! ret_on_err {
-    ($expression:expr, $cx:ident) => {
+    ($expression:expr) => {
         match $expression {
             Ok(val) => val,
             Err(err) => {
-                $cx.answer(format!("I got an unexpected error: {}", err))
-                    .await?;
-                return Ok(());
+                let msg = format!("I got an unexpected error: {}", err);
+                return Ok(ExistStatus::failure(msg));
             }
         }
     };
-    ($expression:expr, $cx:ident, $string:expr) => {
+    ($expression:expr, $string:expr) => {
         match $expression {
             Ok(val) => val,
             Err(err) => {
-                $cx.answer(format!("{}: {}", $string, err)).await?;
-                return Ok(());
+                let msg = format!("{}: {}", $string, err);
+                return Ok(ExistStatus::failure(msg));
             }
         }
     };

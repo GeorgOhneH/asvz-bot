@@ -27,6 +27,7 @@ use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
+use crate::job_fns::ExistStatus;
 
 #[instrument(skip(cx), level = "trace")]
 pub async fn msg_user(

@@ -81,7 +81,7 @@ async fn run() {
             }
             Some(result) = state.next() => {
                 match result {
-                    Ok(()) => (),
+                    Ok(_) => (),
                     Err(err) => {
                         if let Ok(reason) = err.try_into_panic() {
                             std::panic::resume_unwind(reason);

@@ -5,6 +5,7 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
+use crate::job_fns::ExistStatus;
 use crate::utils::reply;
 use crate::utils::ret_on_err;
 use crate::utils::{current_timestamp, CountLoop};
@@ -33,17 +34,17 @@ use tracing::{debug, instrument, trace};
 
 #[instrument(skip(cx))]
 pub async fn notify(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
     id: LessonID,
-) -> Result<(), RequestError> {
+) -> Result<ExistStatus, RequestError> {
     let client = reqwest::Client::new();
 
-    let data = ret_on_err!(lesson_data(&client, &id).await, cx);
+    let data = ret_on_err!(lesson_data(&client, &id).await);
     let current_ts = current_timestamp();
 
-    let until_ts = ret_on_err!(data.enroll_until_timestamp(), cx);
+    let until_ts = ret_on_err!(data.enroll_until_timestamp());
 
-    let from_ts = ret_on_err!(data.enroll_from_timestamp(), cx);
+    let from_ts = ret_on_err!(data.enroll_from_timestamp());
 
     if from_ts > current_ts {
         // We still need to wait to enroll
@@ -51,26 +52,20 @@ pub async fn notify(
         reply!(cx, "I will remind you to enroll in {} seconds", wait_time).await?;
         tokio::time::sleep(Duration::from_secs(wait_time)).await;
         let current_time = current_timestamp();
-        reply!(cx, "enrolling starts in {} seconds", from_ts - current_time).await?;
-        return Ok(());
+        let msg = format!("enrolling starts in {} seconds", from_ts - current_time);
+        return Ok(ExistStatus::success(msg));
     }
 
     for count in CountLoop::new() {
         if current_ts > until_ts {
-            reply!(cx, "You can no longer enroll\nStopping this Job").await?;
-            return Ok(());
+            return Ok(ExistStatus::failure("You can no longer enroll"));
         }
 
-        let fresh_data = ret_on_err!(lesson_data(&client, &id).await, cx);
+        let fresh_data = ret_on_err!(lesson_data(&client, &id).await);
         let free_places = fresh_data.data.participants_max - fresh_data.data.participant_count;
         if free_places > 0 {
-            reply!(
-                cx,
-                "There are currently {} free places\nStopping this job",
-                free_places
-            )
-            .await?;
-            return Ok(());
+            let msg = format!("There are currently {} free places", free_places);
+            return Ok(ExistStatus::Success(msg));
         }
         if count == 0 {
             reply!(

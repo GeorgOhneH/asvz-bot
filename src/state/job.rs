@@ -5,6 +5,8 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
+use crate::job_fns;
+use crate::state::user::UserId;
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -27,9 +29,6 @@ use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
-use crate::state::user::UserId;
-use crate::job_fns;
-
 
 #[derive(Debug)]
 pub struct Job {
@@ -40,11 +39,13 @@ pub struct Job {
 
 impl Job {
     pub fn notify(user_id: UserId, cx: UpdateWithCx<AutoSend<Bot>, Message>, id: LessonID) -> Self {
-        let handle = tokio::spawn(job_fns::notify(cx, id.clone()));
+        let kind = JobKind::Notify(id.clone());
+        let fut =
+            async move { job_fns::utils::wrap_exit_status(&cx, job_fns::notify(&cx, id)).await };
         Self {
-            kind: JobKind::Notify(id),
+            kind,
             user_id,
-            handle,
+            handle: tokio::spawn(fut),
         }
     }
     pub fn enroll(
@@ -54,11 +55,18 @@ impl Job {
         username: Username,
         password: Password,
     ) -> Self {
-        let handle = tokio::spawn(job_fns::enroll(cx, id.clone(), username, password));
+        let kind = JobKind::Enroll(id.clone());
+        let fut = async move {
+            job_fns::utils::wrap_exit_status(
+                &cx,
+                job_fns::enroll(&cx, id.clone(), username, password),
+            )
+            .await
+        };
         Self {
-            kind: JobKind::Enroll(id),
+            kind,
             user_id,
-            handle,
+            handle: tokio::spawn(fut),
         }
     }
 
@@ -83,7 +91,6 @@ impl Future for Job {
         Pin::new(&mut self.handle).poll(cx)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub enum JobKind {
