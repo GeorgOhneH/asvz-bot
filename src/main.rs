@@ -14,7 +14,6 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
 use crate::asvz::login::asvz_login;
 use crate::state::State;
-use cmd::handle_update;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
 use futures::{FutureExt, TryFutureExt};
@@ -67,19 +66,17 @@ async fn run() {
     let bot_stream = bot_update.as_stream();
     tokio::pin!(bot_stream);
 
-    let mut update_handles = FuturesUnordered::new();
-
-    let (action_tx, mut action_rx) = tokio::sync::mpsc::channel(512);
-
     loop {
         tokio::select! {
             Some(update) = bot_stream.next() => {
-                update_handles.push(handle_update(update.unwrap(), bot.clone(), action_tx.clone()));
+                if let UpdateKind::Message(msg) = update.unwrap().kind {
+                    let cx = UpdateWithCx {
+                        requester: bot.clone(),
+                        update: msg,
+                    };
+                    state.handle_update(cx);
+                }
             },
-            Some(_) = update_handles.next() => (),
-            Some(action) = action_rx.recv() => {
-                state.handle_action(action)
-            }
             Some(result) = state.next() => {
                 match result {
                     Ok(_) => (),

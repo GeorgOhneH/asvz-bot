@@ -70,14 +70,15 @@ impl Job {
         }
     }
 
-    pub fn msg_user(
+    pub fn msg_user<T: Into<String>>(
         user_id: UserId,
         cx: UpdateWithCx<AutoSend<Bot>, Message>,
-        text: String,
+        text: T,
     ) -> Self {
-        let handle = tokio::spawn(job_fns::msg_user(cx, text.clone()));
+        let msg = text.into();
+        let handle = tokio::spawn(job_fns::msg_user(cx, msg.clone()));
         Self {
-            kind: JobKind::Internal(InternalJob::MsgUser(text)),
+            kind: JobKind::Internal(InternalJob::MsgUser(msg)),
             user_id,
             handle,
         }

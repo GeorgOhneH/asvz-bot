@@ -28,27 +28,33 @@ use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
-
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct UserId(pub i64);
-
 
 #[derive(Debug)]
 pub struct UserState {
     pub credentials: Option<LoginCredentials>,
+    pub settings: Settings,
 }
 
 impl UserState {
     pub fn new() -> Self {
-        Self { credentials: None }
+        Self {
+            credentials: None,
+            settings: Settings {},
+        }
     }
 
     pub fn with_credentials(credentials: LoginCredentials) -> Self {
         Self {
             credentials: Some(credentials),
+            settings: Settings {},
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Settings {}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -61,5 +67,9 @@ pub struct LoginCredentials {
 impl LoginCredentials {
     pub fn new(username: Username, password: Password) -> Self {
         Self { username, password }
+    }
+    pub fn update(&mut self, username: Username, password: Password) {
+        self.username = username;
+        self.password = password;
     }
 }

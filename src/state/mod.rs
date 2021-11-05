@@ -1,13 +1,16 @@
-pub mod user;
 pub mod job;
+pub mod user;
 
 use std::cmp::max;
 use std::collections::HashMap;
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
+use crate::action::{Action, ActionKind};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
-use crate::cmd::{LessonID, Password, Username};
+use crate::cmd::{Command, LessonID, Password, Username};
+use crate::state::job::{Job, JobKind};
+use crate::state::user::{LoginCredentials, UserId, UserState};
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -30,10 +33,9 @@ use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
-use crate::state::user::{UserId, UserState, LoginCredentials};
-use crate::action::{Action, ActionKind};
-use crate::state::job::{JobKind, Job};
+use crate::BOT_NAME;
 
+static START_MSG: &str = "Hello Welcome to the asvz bot";
 
 #[derive(Debug)]
 pub struct State {
@@ -91,59 +93,106 @@ impl State {
         count
     }
 
-    #[instrument(skip(self))]
-    pub fn handle_action(&mut self, action: Action) {
-        trace!(
-            "new action. user_state: {:?}",
-            self.users.get(&action.user_id)
-        );
-        match action.kind {
-            ActionKind::Notify(id) => self.jobs.push(Job::notify(action.user_id, action.cx, id)),
-            ActionKind::Enroll(id) => {
-                if let Some(UserState {
-                                credentials: Some(cred),
-                            }) = self.users.get(&action.user_id)
-                {
-                    self.jobs.push(Job::enroll(
-                        action.user_id,
-                        action.cx,
-                        id,
+    pub fn handle_update(&mut self, cx: UpdateWithCx<AutoSend<Bot>, Message>) {
+        if let Some((msg, user_id)) = extract_id_text(&cx.update) {
+            let job = match Command::parse(msg, BOT_NAME) {
+                Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
+                Err(err) => {
+                    let text = cmd_err_to_str(err);
+                    Job::msg_user(user_id, cx, text)
+                }
+            };
+            self.jobs.push(job);
+        }
+    }
+
+    pub fn handle_cmd(
+        &mut self,
+        cmd: Command,
+        user_id: UserId,
+        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    ) -> Job {
+        let user_state = self
+            .users
+            .entry(user_id)
+            .or_insert_with(|| UserState::new());
+        match cmd {
+            Command::Start => Job::msg_user(user_id, cx, START_MSG),
+            Command::Help => Job::msg_user(user_id, cx, Command::descriptions()),
+            Command::Notify { lesson_id } => Job::notify(user_id, cx, lesson_id),
+            Command::Enroll { lesson_id } => {
+                if let Some(cred) = &user_state.credentials {
+                    Job::enroll(
+                        user_id,
+                        cx,
+                        lesson_id,
                         cred.username.clone(),
                         cred.password.clone(),
-                    ));
+                    )
                 } else {
                     let text = "You need to be logged in to directly enroll".to_string();
-                    self.jobs
-                        .push(Job::msg_user(action.user_id, action.cx, text))
+                    Job::msg_user(user_id, cx, text)
                 }
             }
-            ActionKind::Login(username, password) => {
-                let credentials = LoginCredentials::new(username, password);
-                if let Some(user) = self.users.get_mut(&action.user_id) {
-                    user.credentials = Some(credentials);
-                    let text = "Updated credentials (I deleted your msg)".to_string();
-                    self.jobs
-                        .push(Job::msg_user(action.user_id, action.cx, text))
+            Command::Login { username, password } => {
+                let msg = if let Some(cred) = &mut user_state.credentials {
+                    cred.update(username, password);
+                    "Updated credentials (I deleted your msg)"
                 } else {
-                    let user = UserState::with_credentials(credentials);
-                    self.users.insert(action.user_id, user);
-                    let text = "Stored credentials (I deleted your msg)".to_string();
-                    self.jobs
-                        .push(Job::msg_user(action.user_id, action.cx, text))
-                }
+                    user_state.credentials = Some(LoginCredentials::new(username, password));
+                    "Stored credentials (I deleted your msg)"
+                };
+                Job::msg_user(user_id, cx, msg)
             }
-            ActionKind::ListJobs => {
-                let text = self.current_jobs(action.user_id);
-                self.jobs
-                    .push(Job::msg_user(action.user_id, action.cx, text))
-            }
-            ActionKind::CancelAll => {
-                let count = self.cancel_jobs(action.user_id);
+            Command::Jobs => Job::msg_user(user_id, cx, self.current_jobs(user_id)),
+            Command::CancelAll => {
+                let count = self.cancel_jobs(user_id);
                 let text = format!("Canceled {} Jobs", count);
-                self.jobs
-                    .push(Job::msg_user(action.user_id, action.cx, text))
+                Job::msg_user(user_id, cx, text)
             }
         }
     }
 }
 
+fn cmd_err_to_str(err: ParseError) -> String {
+    match err {
+        ParseError::UnknownCommand(_) => "Unknown Command".into(),
+        ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
+        ParseError::IncorrectFormat(err) => {
+            format!("Arguments are not correctly formatted: {}", err)
+        }
+        ParseError::TooFewArguments {
+            expected,
+            found,
+            message,
+        } => {
+            format!(
+                "Expected {} arguments (got {}). msg: {}",
+                expected, found, message
+            )
+        }
+        ParseError::TooManyArguments {
+            expected,
+            found,
+            message,
+        } => {
+            format!(
+                "Expected {} arguments (got {}). msg: {}",
+                expected, found, message
+            )
+        }
+        ParseError::Custom(err) => format!("{}", err),
+    }
+}
+
+fn extract_id_text(msg: &Message) -> Option<(&str, UserId)> {
+    match &msg.kind {
+        MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
+            (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
+                Some((&txt.text, UserId(user.id)))
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}

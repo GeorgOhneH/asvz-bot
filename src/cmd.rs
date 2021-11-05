@@ -1,6 +1,7 @@
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
 use crate::action::{Action, ActionKind};
+use crate::state::user::UserId;
 use crate::BOT_NAME;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
@@ -116,132 +117,18 @@ pub enum Command {
 }
 
 impl Command {
-    async fn answer(
-        self,
-        cx: UpdateWithCx<AutoSend<Bot>, Message>,
-        user_id: i64,
-        action_tx: Sender<Action>,
-    ) -> Result<(), RequestError> {
-        let action = match self {
-            Command::Start => {
-                cx.answer(Command::descriptions()).await?;
-                None
-            }
-            Command::Help => {
-                cx.answer(Command::descriptions()).await?;
-                None
-            }
-            Command::Notify { lesson_id } => {
-                Some(Action::new(ActionKind::Notify(lesson_id), user_id, cx))
-            }
-            Command::Enroll { lesson_id } => {
-                Some(Action::new(ActionKind::Enroll(lesson_id), user_id, cx))
-            }
-            Command::Login { username, password } => {
-                cx.delete_message().await?;
-                Some(Action::new(
-                    ActionKind::Login(username, password),
-                    user_id,
-                    cx,
-                ))
-            }
-            Command::Jobs => Some(Action::new(ActionKind::ListJobs, user_id, cx)),
-            Command::CancelAll => Some(Action::new(ActionKind::CancelAll, user_id, cx)),
-        };
-        if let Some(action) = action {
-            action_tx
-                .send(action)
-                .await
-                .expect("Receiver should always be alive");
-        }
-
-        Ok(())
-    }
-}
-
-async fn handle_cmd_err(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
-    err: ParseError,
-) -> Result<(), RequestError> {
-    match err {
-        ParseError::UnknownCommand(_) => cx.answer("Unknown Command").await?,
-        ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
-        ParseError::IncorrectFormat(err) => {
-            cx.answer(format!("Arguments are not correctly formatted: {}", err))
-                .await?
-        }
-        ParseError::TooFewArguments {
-            expected,
-            found,
-            message,
-        } => {
-            cx.answer(format!(
-                "Expected {} arguments (got {}). msg: {}",
-                expected, found, message
-            ))
-            .await?
-        }
-        ParseError::TooManyArguments {
-            expected,
-            found,
-            message,
-        } => {
-            cx.answer(format!(
-                "Expected {} arguments (got {}). msg: {}",
-                expected, found, message
-            ))
-            .await?
-        }
-        ParseError::Custom(err) => cx.answer(format!("{}", err)).await?,
-    };
-    Ok(())
-}
-
-fn extract_cmd_id(
-    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
-) -> Option<Result<(Command, i64), ParseError>> {
-    match &cx.update.kind {
-        MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
-            (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
-                trace!("Got new telegram msg from {}: {}", user.id, &txt.text);
-                match Command::parse(&txt.text, BOT_NAME.to_string()) {
-                    Ok(cmd) => Some(Ok((cmd, user.id))),
-                    Err(err) => Some(Err(err)),
+    pub fn from_update(msg: &Message) -> Option<Result<(Self, UserId), ParseError>> {
+        match &msg.kind {
+            MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
+                (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
+                    match Command::parse(&txt.text, BOT_NAME.to_string()) {
+                        Ok(cmd) => Some(Ok((cmd, UserId(user.id)))),
+                        Err(err) => Some(Err(err)),
+                    }
                 }
-            }
+                _ => None,
+            },
             _ => None,
-        },
-        _ => None,
-    }
-}
-
-async fn _handle_update(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
-    action_tx: Sender<Action>,
-) -> Result<(), RequestError> {
-    match extract_cmd_id(&cx) {
-        Some(Ok((cmd, id))) => cmd.answer(cx, id, action_tx).await,
-        Some(Err(err)) => handle_cmd_err(cx, err).await,
-        None => Ok(()),
-    }
-}
-
-pub async fn handle_update(
-    update: Update,
-    bot: AutoSend<Bot>,
-    action_tx: Sender<Action>,
-) -> Result<(), RequestError> {
-    match update.kind {
-        UpdateKind::Message(msg) => {
-            _handle_update(
-                UpdateWithCx {
-                    requester: bot,
-                    update: msg,
-                },
-                action_tx,
-            )
-            .await
         }
-        _ => Ok(()),
     }
 }
