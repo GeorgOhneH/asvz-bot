@@ -1,6 +1,5 @@
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
-use crate::state::{Action, ActionKind, JobKind};
 use crate::BOT_NAME;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
@@ -23,6 +22,7 @@ use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{trace};
 use tokio::sync::mpsc::Sender;
+use crate::action::{Action, ActionKind};
 
 #[derive(Debug, Clone)]
 pub struct LessonID(String);

@@ -1,9 +1,12 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-mod asvz;
-mod cmd;
-mod state;
+pub mod action;
+pub mod asvz;
+pub mod cmd;
+pub mod job_fns;
+pub mod state;
+pub mod utils;
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -67,7 +70,6 @@ async fn run() {
 
     let (action_tx, mut action_rx) = tokio::sync::mpsc::channel(512);
 
-
     loop {
         tokio::select! {
             Some(update) = bot_stream.next() => {
@@ -79,11 +81,7 @@ async fn run() {
             }
             Some(result) = state.next() => {
                 match result {
-                    Ok(action) => {
-                        if let Some(ac) = action.unwrap() {
-                            state.handle_action(ac)
-                        }
-                    }
+                    Ok(()) => (),
                     Err(err) => {
                         if let Ok(reason) = err.try_into_panic() {
                             std::panic::resume_unwind(reason);
@@ -95,4 +93,3 @@ async fn run() {
         }
     }
 }
-
