@@ -1,5 +1,6 @@
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
+use crate::action::{Action, ActionKind};
 use crate::BOT_NAME;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
@@ -18,11 +19,10 @@ use teloxide::dispatching::update_listeners;
 use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
+use tokio::sync::mpsc::Sender;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::{trace};
-use tokio::sync::mpsc::Sender;
-use crate::action::{Action, ActionKind};
+use tracing::trace;
 
 #[derive(Debug, Clone)]
 pub struct LessonID(String);
@@ -90,23 +90,29 @@ impl FromStr for LessonID {
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 pub enum Command {
-    #[command(description = "same as help.")]
+    #[command(description = "Show the Start Message")]
     Start,
-    #[command(description = "display this text.")]
+    #[command(description = "Displays this text")]
     Help,
-    #[command(description = "You get notified when a lesson starts or a place becomes available.")]
-    Notify(LessonID),
-    #[command(description = "You get enrolled when a lesson starts or a place becomes available.")]
-    Enroll(LessonID),
+    #[command(
+        description = "You get notified when a lesson starts or a place becomes available",
+        parse_with = "split"
+    )]
+    Notify { lesson_id: LessonID },
+    #[command(
+        description = "You get enrolled when a lesson starts or a place becomes available",
+        parse_with = "split"
+    )]
+    Enroll { lesson_id: LessonID },
     #[command(description = "login.", parse_with = "split")]
     Login {
         username: Username,
         password: Password,
     },
     #[command(description = "Show your current Jobs.")]
-    ListJobs,
+    Jobs,
     #[command(description = "Cancel all Jobs.")]
-    CancelAllJobs,
+    CancelAll,
 }
 
 impl Command {
@@ -125,11 +131,11 @@ impl Command {
                 cx.answer(Command::descriptions()).await?;
                 None
             }
-            Command::Notify(id) => {
-                Some(Action::new(ActionKind::Notify(id), user_id, cx))
+            Command::Notify { lesson_id } => {
+                Some(Action::new(ActionKind::Notify(lesson_id), user_id, cx))
             }
-            Command::Enroll(id) => {
-                Some(Action::new(ActionKind::Enroll(id), user_id, cx))
+            Command::Enroll { lesson_id } => {
+                Some(Action::new(ActionKind::Enroll(lesson_id), user_id, cx))
             }
             Command::Login { username, password } => {
                 cx.delete_message().await?;
@@ -139,11 +145,14 @@ impl Command {
                     cx,
                 ))
             }
-            Command::ListJobs => Some(Action::new(ActionKind::ListJobs, user_id, cx)),
-            Command::CancelAllJobs => Some(Action::new(ActionKind::CancelAll, user_id, cx)),
+            Command::Jobs => Some(Action::new(ActionKind::ListJobs, user_id, cx)),
+            Command::CancelAll => Some(Action::new(ActionKind::CancelAll, user_id, cx)),
         };
         if let Some(action) = action {
-            action_tx.send(action).await.expect("Receiver should always be alive");
+            action_tx
+                .send(action)
+                .await
+                .expect("Receiver should always be alive");
         }
 
         Ok(())
@@ -170,7 +179,7 @@ async fn handle_cmd_err(
                 "Expected {} arguments (got {}). msg: {}",
                 expected, found, message
             ))
-                .await?
+            .await?
         }
         ParseError::TooManyArguments {
             expected,
@@ -181,7 +190,7 @@ async fn handle_cmd_err(
                 "Expected {} arguments (got {}). msg: {}",
                 expected, found, message
             ))
-                .await?
+            .await?
         }
         ParseError::Custom(err) => cx.answer(format!("{}", err)).await?,
     };
@@ -224,11 +233,14 @@ pub async fn handle_update(
 ) -> Result<(), RequestError> {
     match update.kind {
         UpdateKind::Message(msg) => {
-            _handle_update(UpdateWithCx {
-                requester: bot,
-                update: msg,
-            }, action_tx)
-                .await
+            _handle_update(
+                UpdateWithCx {
+                    requester: bot,
+                    update: msg,
+                },
+                action_tx,
+            )
+            .await
         }
         _ => Ok(()),
     }

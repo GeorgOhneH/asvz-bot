@@ -37,6 +37,7 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::log::LevelFilter;
 use tracing::{info, Level};
 use tracing_subscriber::{EnvFilter, Layer};
 use url::Url;
@@ -51,9 +52,9 @@ async fn main() {
 
 async fn run() {
     let filter = EnvFilter::from_default_env()
-        .add_directive("trace".parse().unwrap())
-        .add_directive("hyper=info".parse().unwrap())
-        .add_directive("my_crate=trace".parse().unwrap());
+        .add_directive(Level::TRACE.into())
+        .add_directive("my_crate=trace".parse().unwrap())
+        .add_directive("hyper=info".parse().unwrap());
     let subscriber = tracing_subscriber::fmt().with_env_filter(filter).finish();
     tracing::subscriber::set_global_default(subscriber).expect("Unable to make logging");
 
