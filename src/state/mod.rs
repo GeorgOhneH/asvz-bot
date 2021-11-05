@@ -5,12 +5,12 @@ use std::cmp::max;
 use std::collections::HashMap;
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
-use crate::action::{Action, ActionKind};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{Command, LessonID, Password, Username};
 use crate::state::job::{Job, JobKind};
 use crate::state::user::{LoginCredentials, UserId, UserState};
+use crate::BOT_NAME;
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -33,9 +33,10 @@ use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
-use crate::BOT_NAME;
 
-static START_MSG: &str = "Hello Welcome to the asvz bot";
+static START_MSG: &str = r"Hello Welcome to the asvz bot.
+This Bot allows you to get notified/enrolled when a lesson starts or a place open up.
+See /help for all awailable commands";
 
 #[derive(Debug)]
 pub struct State {
@@ -98,6 +99,7 @@ impl State {
             let job = match Command::parse(msg, BOT_NAME) {
                 Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
                 Err(err) => {
+
                     let text = cmd_err_to_str(err);
                     Job::msg_user(user_id, cx, text)
                 }
@@ -130,17 +132,18 @@ impl State {
                         cred.password.clone(),
                     )
                 } else {
-                    let text = "You need to be logged in to directly enroll".to_string();
+                    let text = "You need to be logged in to directly enroll\
+                    \nSee /help for more info";
                     Job::msg_user(user_id, cx, text)
                 }
             }
             Command::Login { username, password } => {
                 let msg = if let Some(cred) = &mut user_state.credentials {
                     cred.update(username, password);
-                    "Updated credentials (I deleted your msg)"
+                    "Updated credentials"
                 } else {
                     user_state.credentials = Some(LoginCredentials::new(username, password));
-                    "Stored credentials (I deleted your msg)"
+                    "Stored credentials"
                 };
                 Job::msg_user(user_id, cx, msg)
             }

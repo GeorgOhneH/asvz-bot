@@ -1,6 +1,5 @@
 use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 
-use crate::action::{Action, ActionKind};
 use crate::state::user::UserId;
 use crate::BOT_NAME;
 use futures::stream::FuturesUnordered;
@@ -105,7 +104,12 @@ pub enum Command {
         parse_with = "split"
     )]
     Enroll { lesson_id: LessonID },
-    #[command(description = "login.", parse_with = "split")]
+    #[command(
+        description = "Stores your username and password, so I can directly enroll you. \
+    Note your password is never stored on persistent memory, \
+    but your are still giving a random person on the internet your password",
+        parse_with = "split"
+    )]
     Login {
         username: Username,
         password: Password,
@@ -114,21 +118,4 @@ pub enum Command {
     Jobs,
     #[command(description = "Cancel all Jobs.")]
     CancelAll,
-}
-
-impl Command {
-    pub fn from_update(msg: &Message) -> Option<Result<(Self, UserId), ParseError>> {
-        match &msg.kind {
-            MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
-                (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
-                    match Command::parse(&txt.text, BOT_NAME.to_string()) {
-                        Ok(cmd) => Some(Ok((cmd, UserId(user.id)))),
-                        Err(err) => Some(Err(err)),
-                    }
-                }
-                _ => None,
-            },
-            _ => None,
-        }
-    }
 }

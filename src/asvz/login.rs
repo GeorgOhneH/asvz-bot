@@ -2,8 +2,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
+use tracing::{debug, instrument, trace};
 use url::Url;
-use tracing::{instrument, debug, trace};
 
 use crate::asvz::error::AsvzError;
 use reqwest::Client;
