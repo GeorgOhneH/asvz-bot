@@ -7,7 +7,7 @@ use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
 use crate::job_fns::ExistStatus;
 use crate::utils::ret_on_err;
-use crate::utils::{current_timestamp, reply, CountLoop};
+use crate::utils::{current_timestamp, reply};
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -98,7 +98,7 @@ pub async fn enroll(
         }
     }
 
-    for count in CountLoop::new() {
+    for count in 0.. {
         let current_ts = current_timestamp();
 
         if current_ts > until_ts {

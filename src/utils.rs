@@ -25,7 +25,6 @@ use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
 macro_rules! ret_on_err {
@@ -62,24 +61,4 @@ pub fn current_timestamp() -> i64 {
         .duration_since(UNIX_EPOCH)
         .expect("System Time before UNIX EPOCH")
         .as_secs() as i64
-}
-
-pub struct CountLoop {
-    count: usize,
-}
-
-impl CountLoop {
-    pub fn new() -> Self {
-        Self { count: 0 }
-    }
-}
-
-impl Iterator for CountLoop {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let c_count = self.count;
-        self.count += 1;
-        Some(c_count)
-    }
 }

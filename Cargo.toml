@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 teloxide = { version = "0.5", features = ["full"] }
+asvz_bot_derive = { path = "./asvz_bot_derive"}
 tokio = { version =  "1", features = ["full"] }
 futures = "0.3"
 serde = { version = "1", features = ["derive"] }

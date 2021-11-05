@@ -1,5 +1,6 @@
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use teloxide::{prelude::*, RequestError};
 
+use asvz_bot_derive::BotCommand;
 use crate::state::user::UserId;
 use crate::BOT_NAME;
 use futures::stream::FuturesUnordered;
@@ -89,22 +90,22 @@ impl FromStr for LessonID {
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 pub enum Command {
-    #[command(description = "Show the Start Message")]
+    #[command(description = " - Show the Start Message")]
     Start,
-    #[command(description = "Displays this text")]
+    #[command(description = " - Displays this text")]
     Help,
     #[command(
-        description = "You get notified when a lesson starts or a place becomes available",
+        description = " <lesson_id> - You get notified when a lesson starts or a place becomes available",
         parse_with = "split"
     )]
     Notify { lesson_id: LessonID },
     #[command(
-        description = "You get enrolled when a lesson starts or a place becomes available",
+        description = " <lesson_id> - You get enrolled when a lesson starts or a place becomes available",
         parse_with = "split"
     )]
     Enroll { lesson_id: LessonID },
     #[command(
-        description = "Stores your username and password, so I can directly enroll you. \
+        description = " <username> <password> - Stores your username and password, so I can directly enroll you. \
     Note your password is never stored on persistent memory, \
     but your are still giving a random person on the internet your password",
         parse_with = "split"
@@ -113,8 +114,8 @@ pub enum Command {
         username: Username,
         password: Password,
     },
-    #[command(description = "Show your current Jobs.")]
+    #[command(description = " - Show your current Jobs.")]
     Jobs,
-    #[command(description = "Cancel all Jobs.")]
+    #[command(description = " - Cancel all Jobs.")]
     CancelAll,
 }

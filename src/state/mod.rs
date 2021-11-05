@@ -31,12 +31,11 @@ use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
 static START_MSG: &str = r"Hello, Welcome to the asvz bot.
 This Bot allows you to get notified/enrolled when a lesson starts or a place open up.
-See /help for all awailable commands";
+See /help for all available commands";
 
 #[derive(Debug)]
 pub struct State {
@@ -99,7 +98,6 @@ impl State {
             let job = match Command::parse(msg, BOT_NAME) {
                 Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
                 Err(err) => {
-
                     let text = cmd_err_to_str(err);
                     Job::msg_user(user_id, cx, text)
                 }
@@ -159,7 +157,7 @@ impl State {
 
 fn cmd_err_to_str(err: ParseError) -> String {
     match err {
-        ParseError::UnknownCommand(_) => "Unknown Command".into(),
+        ParseError::UnknownCommand(_) => "Unknown Command. See /help for available commands".into(),
         ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
         ParseError::IncorrectFormat(err) => {
             format!("Arguments are not correctly formatted: {}", err)
@@ -167,21 +165,21 @@ fn cmd_err_to_str(err: ParseError) -> String {
         ParseError::TooFewArguments {
             expected,
             found,
-            message,
+            message: _,
         } => {
             format!(
-                "Expected {} arguments (got {}). msg: {}",
-                expected, found, message
+                "Expected {} arguments but got {}. See /help for more info.",
+                expected, found
             )
         }
         ParseError::TooManyArguments {
             expected,
             found,
-            message,
+            message: _,
         } => {
             format!(
-                "Expected {} arguments (got {}). msg: {}",
-                expected, found, message
+                "Expected {} arguments but got {}. See /help for more info.",
+                expected, found
             )
         }
         ParseError::Custom(err) => format!("{}", err),

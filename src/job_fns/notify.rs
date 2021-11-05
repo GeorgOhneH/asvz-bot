@@ -8,7 +8,7 @@ use crate::cmd::{LessonID, Password, Username};
 use crate::job_fns::ExistStatus;
 use crate::utils::reply;
 use crate::utils::ret_on_err;
-use crate::utils::{current_timestamp, CountLoop};
+use crate::utils::{current_timestamp};
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -29,7 +29,6 @@ use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, instrument, trace};
 
 #[instrument(skip(cx))]
@@ -56,7 +55,7 @@ pub async fn notify(
         return Ok(ExistStatus::success(msg));
     }
 
-    for count in CountLoop::new() {
+    for count in 0.. {
         if current_ts > until_ts {
             return Ok(ExistStatus::failure("You can no longer enroll"));
         }
