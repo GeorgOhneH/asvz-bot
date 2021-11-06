@@ -40,26 +40,55 @@ impl UserState {
     pub fn new() -> Self {
         Self {
             credentials: None,
-            settings: Settings {},
+            settings: Settings::new(),
         }
     }
 
     pub fn with_credentials(credentials: LoginCredentials) -> Self {
         Self {
             credentials: Some(credentials),
-            settings: Settings {},
+            settings: Settings::new(),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Settings {}
+pub struct Settings {
+    pub url_action: UrlAction,
+}
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+impl Settings {
+    pub fn new() -> Self {
+        Self {
+            url_action: UrlAction::Default,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum UrlAction {
+    Default,
+    Notify,
+    Enroll,
+}
+
+
+impl FromStr for UrlAction {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(UrlAction::Default),
+            "1" => Ok(UrlAction::Notify),
+            "2" => Ok(UrlAction::Enroll),
+            _ => Err("Use one of these: 0: Default, 1: Notify, 2: Enroll".into())
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct LoginCredentials {
     pub username: Username,
-    #[derivative(Debug = "ignore")]
     pub password: Password,
 }
 

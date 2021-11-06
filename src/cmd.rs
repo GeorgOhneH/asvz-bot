@@ -1,8 +1,9 @@
 use teloxide::{prelude::*, RequestError};
 
-use asvz_bot_derive::BotCommand;
-use crate::state::user::UserId;
+use crate::state::user::{UrlAction, UserId};
 use crate::BOT_NAME;
+use asvz_bot_derive::BotCommand;
+use derivative::Derivative;
 use futures::stream::FuturesUnordered;
 use futures::stream::{self, StreamExt};
 use futures::{FutureExt, TryFutureExt};
@@ -25,7 +26,7 @@ use tokio::task::{JoinError, JoinHandle};
 use tracing::trace;
 
 #[derive(Debug, Clone)]
-pub struct LessonID(String);
+pub struct LessonID(pub String);
 
 #[derive(Clone, Debug)]
 pub struct Username(String);
@@ -54,6 +55,12 @@ pub struct Password(String);
 impl Password {
     pub fn as_str_dangerous(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl fmt::Debug for Password {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Password").field(&"***").finish()
     }
 }
 
@@ -87,7 +94,7 @@ impl FromStr for LessonID {
     }
 }
 
-#[derive(BotCommand)]
+#[derive(Debug, BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 pub enum Command {
     #[command(description = " - Show the Start Message")]
@@ -105,15 +112,26 @@ pub enum Command {
     )]
     Enroll { lesson_id: LessonID },
     #[command(
-        description = " <username> <password> - Stores your username and password, so I can directly enroll you. \
-    Note your password is never stored on persistent memory, \
-    but your are still giving a random person on the internet your password",
+        description = " <username> <password> - Stores your username and password, so you can be directly enrolled. \
+    Important: Your password is never stored on persistent memory and it should be secure, \
+    but your are still giving a random person on the internet your password. \
+    I wouldn't do it, if I were you :)",
         parse_with = "split"
     )]
     Login {
         username: Username,
         password: Password,
     },
+    #[command(description = " - Remove your login credentials.")]
+    Logout,
+    #[command(
+        description = " {0, 1, 2} - Sets the behavior when a lesson url is found:\n\
+        \t 0: Default - Enrolls you if you are logged in otherwise it notifies you\n\
+        \t 1: Notify - Will always notify you\n\
+        \t 2: Enroll - Will always enroll you\n",
+        parse_with = "split"
+    )]
+    UrlAction { url_action: UrlAction },
     #[command(description = " - Show your current Jobs.")]
     Jobs,
     #[command(description = " - Cancel all Jobs.")]

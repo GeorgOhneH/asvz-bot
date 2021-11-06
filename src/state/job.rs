@@ -47,6 +47,24 @@ impl Job {
             handle: tokio::spawn(fut),
         }
     }
+    pub fn notify_with_msg(
+        user_id: UserId,
+        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+        id: LessonID,
+        msg: impl Into<String>,
+    ) -> Self {
+        let kind = JobKind::Notify(id.clone());
+        let msg = msg.into();
+        let fut = async move {
+            cx.answer(msg).await?;
+            job_fns::utils::wrap_exit_status(&cx, job_fns::notify(&cx, id)).await
+        };
+        Self {
+            kind,
+            user_id,
+            handle: tokio::spawn(fut),
+        }
+    }
     pub fn enroll(
         user_id: UserId,
         cx: UpdateWithCx<AutoSend<Bot>, Message>,
@@ -56,6 +74,30 @@ impl Job {
     ) -> Self {
         let kind = JobKind::Enroll(id.clone());
         let fut = async move {
+            job_fns::utils::wrap_exit_status(
+                &cx,
+                job_fns::enroll(&cx, id.clone(), username, password),
+            )
+            .await
+        };
+        Self {
+            kind,
+            user_id,
+            handle: tokio::spawn(fut),
+        }
+    }
+    pub fn enroll_with_msg(
+        user_id: UserId,
+        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+        id: LessonID,
+        username: Username,
+        password: Password,
+        msg: impl Into<String>,
+    ) -> Self {
+        let kind = JobKind::Enroll(id.clone());
+        let msg = msg.into();
+        let fut = async move {
+            cx.answer(msg).await?;
             job_fns::utils::wrap_exit_status(
                 &cx,
                 job_fns::enroll(&cx, id.clone(), username, password),
