@@ -5,6 +5,7 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
+use crate::job_fns::ExistStatus;
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -26,13 +27,13 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tracing::{debug, instrument, trace};
-use crate::job_fns::ExistStatus;
 
-#[instrument(skip(cx), level = "trace")]
+#[instrument(skip(cx, text))]
 pub async fn msg_user(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
     text: String,
 ) -> Result<(), RequestError> {
+    trace!("new msg job");
     cx.answer(text).await?;
     Ok(())
 }

@@ -102,11 +102,7 @@ fn impl_descriptions(infos: &[Command], global: &CommandEnum) -> quote::__privat
         info.description
             .as_deref()
             .map(|e| {
-                if e != "off" {
-                    format!("{}", e)
-                } else {
-                    e.to_string()
-                }
+                e.to_string()
             })
             .unwrap_or_default()
     });

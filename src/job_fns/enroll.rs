@@ -37,6 +37,7 @@ pub async fn enroll(
     username: Username,
     password: Password,
 ) -> Result<ExistStatus, RequestError> {
+    trace!("new enroll job");
     let client = Client::builder().cookie_store(true).build().unwrap();
     let enroll_url = format!(
         "https://schalter.asvz.ch/tn-api/api/Lessons/{}/enroll",

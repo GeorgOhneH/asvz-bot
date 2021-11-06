@@ -41,7 +41,7 @@ fn unescape(str: &str) -> String {
     r
 }
 
-#[instrument(skip(client, password))]
+#[instrument(skip(client, username, password))]
 pub async fn asvz_login(
     client: &Client,
     username: &str,
@@ -75,7 +75,7 @@ pub async fn asvz_login(
             .error_for_status()?;
 
         aai_login(
-            &client,
+            client,
             username,
             password,
             response.url().clone(),

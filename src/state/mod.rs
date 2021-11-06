@@ -109,8 +109,7 @@ impl State {
                         let lesson_id = LessonID(caps[1].into());
                         self.handle_url(lesson_id, user_id, cx)
                     } else {
-                        let text = cmd_err_to_str(err);
-                        Job::msg_user(user_id, cx, text)
+                        self.handle_cmd_err(err, user_id, cx)
                     }
                 }
             };
@@ -118,14 +117,15 @@ impl State {
         }
     }
 
+    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
     pub fn handle_cmd(
         &mut self,
         cmd: Command,
         user_id: UserId,
         cx: UpdateWithCx<AutoSend<Bot>, Message>,
     ) -> Job {
+        trace!("new cmd");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
-        trace!("new command: {:?}, user_state: {:?}", &cmd, user_state);
         match cmd {
             Command::Start => Job::msg_user(user_id, cx, START_MSG),
             Command::Help => Job::msg_user(user_id, cx, Command::descriptions()),
@@ -178,12 +178,51 @@ impl State {
         }
     }
 
+    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
+    fn handle_cmd_err(
+        &mut self,
+        err: ParseError,
+        user_id: UserId,
+        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    ) -> Job {
+        trace!("new cmd err");
+        let msg = match err {
+            ParseError::UnknownCommand(_) => {
+                "Unknown Command. See /help for available commands".into()
+            }
+            ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
+            ParseError::IncorrectFormat(err) => {
+                format!("Arguments are not correctly formatted: {}", err)
+            }
+            ParseError::TooFewArguments {
+                expected,
+                found,
+                message: _,
+            }
+            | ParseError::TooManyArguments {
+                expected,
+                found,
+                message: _,
+            } => {
+                format!(
+                    "Expected {} arguments but got {}. See /help for more info.",
+                    expected, found
+                )
+            }
+            ParseError::Custom(err) => format!("{}. See /help for more info", err),
+        };
+
+        Job::msg_user(user_id, cx, msg)
+    }
+
+    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
     pub fn handle_url(
         &mut self,
         lesson_id: LessonID,
         user_id: UserId,
         cx: UpdateWithCx<AutoSend<Bot>, Message>,
     ) -> Job {
+        trace!("new lesson url");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
 
         match (user_state.settings.url_action, &user_state.credentials) {
@@ -213,37 +252,6 @@ impl State {
                 "I can't enroll you without logging in. See /help for more info.",
             ),
         }
-    }
-}
-
-fn cmd_err_to_str(err: ParseError) -> String {
-    match err {
-        ParseError::UnknownCommand(_) => "Unknown Command. See /help for available commands".into(),
-        ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
-        ParseError::IncorrectFormat(err) => {
-            format!("Arguments are not correctly formatted: {}", err)
-        }
-        ParseError::TooFewArguments {
-            expected,
-            found,
-            message: _,
-        } => {
-            format!(
-                "Expected {} arguments but got {}. See /help for more info.",
-                expected, found
-            )
-        }
-        ParseError::TooManyArguments {
-            expected,
-            found,
-            message: _,
-        } => {
-            format!(
-                "Expected {} arguments but got {}. See /help for more info.",
-                expected, found
-            )
-        }
-        ParseError::Custom(err) => format!("{}", err),
     }
 }
 

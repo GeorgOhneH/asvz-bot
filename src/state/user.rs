@@ -26,6 +26,7 @@ use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
 use teloxide::utils::command::ParseError;
 use tokio::task::{JoinError, JoinHandle};
 use tracing::{debug, instrument, trace};
+use tracing::field::{Field, Visit};
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct UserId(pub i64);
@@ -52,6 +53,7 @@ impl UserState {
     }
 }
 
+
 #[derive(Debug)]
 pub struct Settings {
     pub url_action: UrlAction,
@@ -65,13 +67,13 @@ impl Settings {
     }
 }
 
+
 #[derive(Debug, Copy, Clone)]
 pub enum UrlAction {
     Default,
     Notify,
     Enroll,
 }
-
 
 impl FromStr for UrlAction {
     type Err = String;
@@ -81,7 +83,7 @@ impl FromStr for UrlAction {
             "0" => Ok(UrlAction::Default),
             "1" => Ok(UrlAction::Notify),
             "2" => Ok(UrlAction::Enroll),
-            _ => Err("Use one of these: 0: Default, 1: Notify, 2: Enroll".into())
+            _ => Err("Use one of these: 0: Default, 1: Notify, 2: Enroll".into()),
         }
     }
 }

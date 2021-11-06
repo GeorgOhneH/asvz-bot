@@ -6,9 +6,9 @@ use crate::asvz::lesson::lesson_data;
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
 use crate::job_fns::ExistStatus;
+use crate::utils::current_timestamp;
 use crate::utils::reply;
 use crate::utils::ret_on_err;
-use crate::utils::{current_timestamp};
 use chrono::DateTime;
 use derivative::Derivative;
 use futures::stream::FuturesUnordered;
@@ -36,6 +36,7 @@ pub async fn notify(
     cx: &UpdateWithCx<AutoSend<Bot>, Message>,
     id: LessonID,
 ) -> Result<ExistStatus, RequestError> {
+    trace!("new notify job");
     let client = reqwest::Client::new();
 
     let data = ret_on_err!(lesson_data(&client, &id).await);

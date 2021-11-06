@@ -1,6 +1,6 @@
+use crate::asvz::api::lesson::LessonError;
 use thiserror::Error;
 use url::ParseError;
-use crate::asvz::api::lesson::LessonError;
 
 #[derive(Error, Debug)]
 pub enum AsvzError {
@@ -8,7 +8,7 @@ pub enum AsvzError {
     Http(#[from] reqwest::Error),
     #[error("Unable to connect to Lesson: {0:?}")]
     Lesson(LessonError),
-    #[error("what?")]
+    #[error("Unexpected Response from the Server")]
     UnexpectedFormat,
 }
 

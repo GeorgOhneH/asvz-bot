@@ -57,8 +57,11 @@ macro_rules! reply {
 pub(crate) use reply;
 
 pub fn current_timestamp() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("System Time before UNIX EPOCH")
-        .as_secs() as i64
+    i64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System Time before UNIX EPOCH")
+            .as_secs(),
+    )
+    .expect("u64 to big")
 }

@@ -143,10 +143,7 @@ pub enum JobKind {
 
 impl JobKind {
     pub fn is_internal(&self) -> bool {
-        match self {
-            Self::Internal(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Internal(_))
     }
 }
 

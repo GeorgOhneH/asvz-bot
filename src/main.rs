@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![allow(clippy::new_without_default)]
 
 pub mod asvz;
 pub mod cmd;
@@ -75,9 +76,9 @@ async fn run() {
                     state.handle_update(cx);
                 }
             },
-            Some(result) = state.next() => {
-                match result {
-                    Ok(_) => (),
+            Some(handle_result) = state.next() => {
+                match handle_result {
+                    Ok(result) => result.unwrap(),
                     Err(err) => {
                         if let Ok(reason) = err.try_into_panic() {
                             std::panic::resume_unwind(reason);
