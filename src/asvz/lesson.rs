@@ -1,8 +1,9 @@
+use reqwest::Client;
+use tracing::{instrument, trace, warn};
+
 use crate::asvz::api::lesson::{LessonData, LessonError};
 use crate::asvz::error::AsvzError;
 use crate::cmd::LessonID;
-use reqwest::Client;
-use tracing::{instrument, trace, warn};
 
 #[instrument(skip(client))]
 pub async fn lesson_data(client: &Client, id: &LessonID) -> Result<LessonData, AsvzError> {

@@ -3,7 +3,6 @@ use chrono::ParseError;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
-use std::fmt::{Display, Formatter};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

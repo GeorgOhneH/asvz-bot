@@ -1,29 +1,10 @@
-use teloxide::{prelude::*, RequestError};
-
-use crate::state::user::{UrlAction, UserId};
-use crate::BOT_NAME;
-use asvz_bot_derive::BotCommand;
-use derivative::Derivative;
-use futures::stream::FuturesUnordered;
-use futures::stream::{self, StreamExt};
-use futures::{FutureExt, TryFutureExt};
-use std::error::Error;
 use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
+use std::fmt::Formatter;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::task::Context;
-use std::time::Duration;
-use teloxide::adaptors::AutoSend;
-use teloxide::dispatching::update_listeners;
-use teloxide::dispatching::update_listeners::AsUpdateStream;
-use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
-use teloxide::utils::command::ParseError;
-use tokio::sync::mpsc::Sender;
-use tokio::task::{JoinError, JoinHandle};
-use tracing::trace;
+
+use asvz_bot_derive::BotCommand;
+
+use crate::state::user::UrlAction;
 
 #[derive(Debug, Clone)]
 pub struct LessonID(pub String);

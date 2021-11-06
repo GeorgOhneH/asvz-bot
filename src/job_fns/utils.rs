@@ -1,7 +1,8 @@
-use crate::job_fns::ExistStatus;
 use futures::Future;
 use teloxide::prelude::*;
 use teloxide::RequestError;
+
+use crate::job_fns::ExistStatus;
 
 pub async fn wrap_exit_status(
     cx: &UpdateWithCx<AutoSend<Bot>, Message>,

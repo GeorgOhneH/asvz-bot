@@ -1,39 +1,25 @@
-pub mod job;
-pub mod user;
-
-use std::cmp::max;
 use std::collections::HashMap;
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use std::pin::Pin;
+use std::task::Context;
 
-use crate::asvz::lesson::lesson_data;
-use crate::asvz::login::asvz_login;
-use crate::cmd::{Command, LessonID, Password, Username};
+use futures::stream::FuturesUnordered;
+use futures::Stream;
+use lazy_static::lazy_static;
+use regex::Regex;
+use teloxide::adaptors::AutoSend;
+use teloxide::types::{MediaKind, MessageKind};
+use teloxide::utils::command::ParseError;
+use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use tokio::task::JoinError;
+use tracing::{instrument, trace};
+
+use crate::cmd::{Command, LessonID};
 use crate::state::job::{Job, JobKind};
 use crate::state::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
-use chrono::DateTime;
-use derivative::Derivative;
-use futures::stream::FuturesUnordered;
-use futures::stream::{self, StreamExt};
-use futures::{FutureExt, Stream, TryFutureExt};
-use lazy_static::lazy_static;
-use regex::Regex;
-use reqwest::{Client, StatusCode};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::Context;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use teloxide::adaptors::AutoSend;
-use teloxide::dispatching::update_listeners;
-use teloxide::dispatching::update_listeners::AsUpdateStream;
-use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
-use teloxide::utils::command::ParseError;
-use tokio::task::{JoinError, JoinHandle};
-use tracing::{debug, instrument, trace};
+
+pub mod job;
+pub mod user;
 
 static START_MSG: &str = r"Hello, Welcome to the asvz bot.
 This Bot allows you to get notified/enrolled when a lesson starts or as soon a place open up.

@@ -1,33 +1,14 @@
-use std::cmp::max;
-use std::collections::HashMap;
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Context;
 
-use crate::asvz::lesson::lesson_data;
-use crate::asvz::login::asvz_login;
+use teloxide::adaptors::AutoSend;
+use teloxide::{prelude::*, RequestError};
+use tokio::task::{JoinError, JoinHandle};
+
 use crate::cmd::{LessonID, Password, Username};
 use crate::job_fns;
 use crate::state::user::UserId;
-use chrono::DateTime;
-use derivative::Derivative;
-use futures::stream::FuturesUnordered;
-use futures::stream::{self, StreamExt};
-use futures::{FutureExt, Stream, TryFutureExt};
-use reqwest::{Client, StatusCode};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::Context;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use teloxide::adaptors::AutoSend;
-use teloxide::dispatching::update_listeners;
-use teloxide::dispatching::update_listeners::AsUpdateStream;
-use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
-use teloxide::utils::command::ParseError;
-use tokio::task::{JoinError, JoinHandle};
-use tracing::{debug, instrument, trace};
 
 #[derive(Debug)]
 pub struct Job {

@@ -2,44 +2,21 @@
 #![allow(dead_code)]
 #![allow(clippy::new_without_default)]
 
+use futures::stream::StreamExt;
+use teloxide::dispatching::update_listeners;
+use teloxide::dispatching::update_listeners::AsUpdateStream;
+use teloxide::prelude::*;
+use teloxide::types::UpdateKind;
+use tracing::{info, Level};
+use tracing_subscriber::EnvFilter;
+
+use crate::state::State;
+
 pub mod asvz;
 pub mod cmd;
 pub mod job_fns;
 pub mod state;
 pub mod utils;
-
-use std::collections::HashMap;
-use std::convert::Infallible;
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
-
-use crate::asvz::login::asvz_login;
-use crate::state::State;
-use futures::stream::FuturesUnordered;
-use futures::stream::{self, StreamExt};
-use futures::{FutureExt, TryFutureExt};
-use regex::Regex;
-use reqwest::{Client, StatusCode};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::Context;
-use std::time::Duration;
-use teloxide::adaptors::AutoSend;
-use teloxide::dispatching::stop_token::AsyncStopToken;
-use teloxide::dispatching::update_listeners;
-use teloxide::dispatching::update_listeners::{AsUpdateStream, StatefulListener};
-use teloxide::types::{MediaKind, MessageKind, Update, UpdateKind, User};
-use teloxide::utils::command::ParseError;
-use tokio::task::{JoinError, JoinHandle};
-use tracing::log::LevelFilter;
-use tracing::{info, Level};
-use tracing_subscriber::{EnvFilter, Layer};
-use url::Url;
-use warp::Filter;
 
 static BOT_NAME: &str = "asvz_bot";
 
