@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::task::Context;
 
 use futures::stream::FuturesUnordered;
@@ -9,20 +10,18 @@ use regex::Regex;
 use teloxide::adaptors::AutoSend;
 use teloxide::types::{MediaKind, MessageKind};
 use teloxide::utils::command::ParseError;
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use teloxide::{prelude::*, RequestError, utils::command::BotCommand};
 use tokio::task::JoinError;
 use tracing::{instrument, trace};
 
 use crate::cmd::{Command, LessonID};
-use crate::state::job::{Job, JobKind};
-use crate::state::user::{LoginCredentials, UrlAction, UserId, UserState};
+use crate::job::{Job, JobKind};
+use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
 
-pub mod job;
-pub mod user;
-
-static START_MSG: &str = r"Hello, Welcome to the asvz bot.
-This Bot allows you to get notified/enrolled when a lesson starts or as soon a place open up.
+static START_MSG: &str = r"Welcome to the asvz bot.
+This Bot allows you to get notified/enrolled when a lesson starts or as soon a place opens up.
+The source code can be found here: (https://github.com/GeorgOhneH/asvz-bot)
 See /help for all available commands";
 
 lazy_static! {
@@ -63,8 +62,16 @@ impl State {
                     r.push_str("\nNotify ");
                     r.push_str(id.as_str());
                 }
+                JobKind::NotifyWeekly(id) => {
+                    r.push_str("\nNotifyWeekly ");
+                    r.push_str(id.as_str());
+                }
                 JobKind::Enroll(id) => {
                     r.push_str("\nEnroll ");
+                    r.push_str(id.as_str());
+                }
+                JobKind::EnrollWeekly(id) => {
+                    r.push_str("\nEnrollWeekly ");
                     r.push_str(id.as_str());
                 }
                 JobKind::Internal(_) => (),
@@ -92,7 +99,7 @@ impl State {
                 Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
                 Err(err) => {
                     if let Some(caps) = LESSON_URL_RE.captures(msg) {
-                        let lesson_id = LessonID(caps[1].into());
+                        let lesson_id = LessonID::from_str(&caps[1]).expect("Captures non number");
                         self.handle_url(lesson_id, user_id, cx)
                     } else {
                         self.handle_cmd_err(err, user_id, cx)
@@ -116,9 +123,25 @@ impl State {
             Command::Start => Job::msg_user(user_id, cx, START_MSG),
             Command::Help => Job::msg_user(user_id, cx, Command::descriptions()),
             Command::Notify { lesson_id } => Job::notify(user_id, cx, lesson_id),
+            Command::NotifyWeekly { lesson_id } => Job::notify_weekly(user_id, cx, lesson_id),
             Command::Enroll { lesson_id } => {
                 if let Some(cred) = &user_state.credentials {
                     Job::enroll(
+                        user_id,
+                        cx,
+                        lesson_id,
+                        cred.username.clone(),
+                        cred.password.clone(),
+                    )
+                } else {
+                    let text = "You need to be logged in to directly enroll\
+                    \nSee /help for more info";
+                    Job::msg_user(user_id, cx, text)
+                }
+            }
+            Command::EnrollWeekly { lesson_id } => {
+                if let Some(cred) = &user_state.credentials {
+                    Job::enroll_weekly(
                         user_id,
                         cx,
                         lesson_id,
@@ -139,7 +162,7 @@ impl State {
                     user_state.credentials = Some(LoginCredentials::new(username, password));
                     "Stored credentials"
                 };
-                Job::msg_user(user_id, cx, msg)
+                Job::reply_and_delete(user_id, cx, msg)
             }
             Command::Logout => {
                 let msg = if user_state.credentials.is_some() {

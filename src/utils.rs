@@ -5,8 +5,9 @@ macro_rules! ret_on_err {
         match $expression {
             Ok(val) => val,
             Err(err) => {
-                let msg = format!("I got an unexpected error: {}", err);
-                return Ok(ExistStatus::failure(msg));
+                tracing::warn!("Job error: {}", &err);
+                let msg = format!("I got an unexpected error: {}", &err);
+                return Ok(ExistStatus::error(msg));
             }
         }
     };
@@ -14,8 +15,9 @@ macro_rules! ret_on_err {
         match $expression {
             Ok(val) => val,
             Err(err) => {
-                let msg = format!("{}: {}", $string, err);
-                return Ok(ExistStatus::failure(msg));
+                tracing::warn!("Job error: {}", &err);
+                let msg = format!("{}: {}", $string, &err);
+                return Ok(ExistStatus::error(msg));
             }
         }
     };

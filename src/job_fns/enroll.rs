@@ -1,27 +1,67 @@
 use std::cmp::max;
 use std::time::Duration;
 
+use crate::asvz::error::AsvzError;
 use reqwest::{Client, StatusCode};
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
 
-use crate::asvz::lesson::lesson_data;
+use crate::asvz::lesson::{lesson_data, search_data};
 use crate::asvz::login::asvz_login;
 use crate::cmd::{LessonID, Password, Username};
 use crate::job_fns::ExistStatus;
+use crate::job_update_cx::JobUpdateCx;
 use crate::utils::ret_on_err;
 use crate::utils::{current_timestamp, reply};
 
 #[instrument(skip(cx, password))]
 pub async fn enroll(
-    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: &JobUpdateCx,
     id: LessonID,
     username: Username,
     password: Password,
 ) -> Result<ExistStatus, RequestError> {
     trace!("new enroll job");
     let client = Client::builder().cookie_store(true).build().unwrap();
+    enroll_once(&client, cx, &id, &username, &password).await
+}
+
+#[instrument(skip(cx))]
+pub async fn enroll_weekly(
+    cx: &JobUpdateCx,
+    start_id: LessonID,
+    username: Username,
+    password: Password,
+) -> Result<ExistStatus, RequestError> {
+    trace!("new enroll_weekly job");
+    let client = Client::builder().cookie_store(true).build().unwrap();
+    let mut current_id = start_id;
+    loop {
+        match enroll_once(&client, cx, &current_id, &username, &password).await? {
+            ExistStatus::Success(msg) | ExistStatus::Failure(msg) => {
+                cx.answer(msg).await?;
+            }
+            ExistStatus::Error(msg) => return Ok(ExistStatus::Error(msg)),
+        }
+        let event_list = ret_on_err!(search_data(&client, &current_id, 1).await);
+        if let Some(id) = event_list.lesson_id() {
+            current_id = id;
+            reply!(cx, "Found next weeks lesson: {}", current_id.as_str()).await?;
+        } else {
+            return Ok(ExistStatus::failure("Unable to find next lesson"));
+        }
+    }
+}
+
+async fn enroll_once(
+    client: &Client,
+    cx: &JobUpdateCx,
+    id: &LessonID,
+    username: &Username,
+    password: &Password,
+) -> Result<ExistStatus, RequestError> {
+    trace!("enroll once");
     let enroll_url = format!(
         "https://schalter.asvz.ch/tn-api/api/Lessons/{}/enroll",
         id.as_str()
@@ -76,7 +116,7 @@ pub async fn enroll(
                 StatusCode::UNPROCESSABLE_ENTITY => (),
                 code => {
                     let msg = format!("Got unexpected status code: {}", code);
-                    return Ok(ExistStatus::failure(msg));
+                    return Ok(ExistStatus::error(msg));
                 }
             }
         }
@@ -115,7 +155,7 @@ pub async fn enroll(
             StatusCode::UNPROCESSABLE_ENTITY => (),
             code => {
                 let msg = format!("Got unexpected status code: {}", code);
-                return Ok(ExistStatus::failure(msg));
+                return Ok(ExistStatus::error(msg));
             }
         }
 

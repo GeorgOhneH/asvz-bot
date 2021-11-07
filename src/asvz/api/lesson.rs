@@ -1,5 +1,5 @@
-use chrono::DateTime;
 use chrono::ParseError;
+use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -11,8 +11,11 @@ pub struct LessonData {
 }
 
 impl LessonData {
-    fn str_to_timestamp(date: &str) -> Result<i64, ParseError> {
-        DateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%z").map(|d| {
+    pub fn str_to_datetime(date: &str) -> Result<DateTime<FixedOffset>, ParseError> {
+        DateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%z")
+    }
+    pub fn str_to_timestamp(date: &str) -> Result<i64, ParseError> {
+        Self::str_to_datetime(date).map(|d| {
             let timestamp = d.timestamp();
             assert!(timestamp >= 0);
             timestamp
