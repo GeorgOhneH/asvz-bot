@@ -57,7 +57,7 @@ async fn notify_once(
     id: &LessonID,
 ) -> Result<ExistStatus, RequestError> {
     trace!("notify_once");
-    let data = ret_on_err!(lesson_data(&client, id).await);
+    let data = ret_on_err!(lesson_data(client, id).await);
     let current_ts = current_timestamp();
 
     let until_ts = ret_on_err!(data.enroll_until_timestamp());
@@ -79,7 +79,7 @@ async fn notify_once(
             return Ok(ExistStatus::failure("You can no longer enroll"));
         }
 
-        let fresh_data = ret_on_err!(lesson_data(&client, id).await);
+        let fresh_data = ret_on_err!(lesson_data(client, id).await);
         let free_places = fresh_data.data.participants_max - fresh_data.data.participant_count;
         if free_places > 0 {
             let msg = format!("There are currently {} free places", free_places);

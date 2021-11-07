@@ -67,11 +67,11 @@ async fn enroll_once(
         id.as_str()
     );
     let mut token = ret_on_err!(
-        asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
+        asvz_login(client, username.as_str(), password.as_str_dangerous()).await,
         "Unable to log in"
     );
 
-    let data = ret_on_err!(lesson_data(&client, &id).await);
+    let data = ret_on_err!(lesson_data(client, id).await);
     let until_ts = ret_on_err!(data.enroll_until_timestamp());
     let from_ts = ret_on_err!(data.enroll_from_timestamp());
 
@@ -84,7 +84,7 @@ async fn enroll_once(
         tokio::time::sleep(Duration::from_secs(wait_time)).await;
 
         token = ret_on_err!(
-            asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
+            asvz_login(client, username.as_str(), password.as_str_dangerous()).await,
             "Unable to log in"
         );
         trace!("refreshed token");
@@ -148,7 +148,7 @@ async fn enroll_once(
             }
             StatusCode::UNAUTHORIZED => {
                 token = ret_on_err!(
-                    asvz_login(&client, username.as_str(), password.as_str_dangerous()).await,
+                    asvz_login(client, username.as_str(), password.as_str_dangerous()).await,
                     "Unable to log in"
                 );
             }
