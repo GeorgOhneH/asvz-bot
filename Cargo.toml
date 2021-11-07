@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-teloxide = { version = "0.5", features = ["full"] }
+teloxide = { version = "0.5", features = ["auto-send"] }
 asvz_bot_derive = { path = "./asvz_bot_derive"}
 tokio = { version =  "1", features = ["full"] }
 futures = "0.3"
