@@ -47,7 +47,7 @@ pub async fn enroll_weekly(
         let event_list = ret_on_err!(search_data(&client, &current_id, 1).await);
         if let Some(id) = event_list.lesson_id() {
             current_id = id;
-            reply!(cx, "Found next weeks lesson: {}", current_id.as_str()).await?;
+            reply!(cx, "Found next week's lesson: {}", current_id.as_str()).await?;
         } else {
             return Ok(ExistStatus::failure("Unable to find next lesson"));
         }
@@ -91,7 +91,7 @@ async fn enroll_once(
 
         let current_ts = current_timestamp();
         let wait_time = max(from_ts - current_ts - 2, 0) as u64;
-        trace!("waiting again {} seconds", wait_time);
+        trace!("waiting again for {} seconds", wait_time);
         tokio::time::sleep(Duration::from_secs(wait_time)).await;
 
         while current_timestamp() < from_ts + 5 {
