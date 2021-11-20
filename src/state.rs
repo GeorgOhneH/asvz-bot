@@ -19,9 +19,9 @@ use crate::job::{Job, JobKind};
 use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
 
-static START_MSG: &str = r"Welcome to the asvz bot.
-This bot allows you to get notified/enrolled when a lesson starts or as soon as a spot opens up.
-The source code can be found here: (https://github.com/GeorgOhneH/asvz-bot)
+static START_MSG: &str = r"Welcome to the ASVZ telegram bot.
+This bot allows you to get notified/enroll when a lesson starts or as soon as a spot opens up.
+The source code is available online: (https://github.com/GeorgOhneH/asvz-bot)
 See /help for all available commands";
 
 lazy_static! {
@@ -135,7 +135,7 @@ impl State {
                     )
                 } else {
                     let text = "You need to be logged in to directly enroll\
-                    \nSee /help for more info";
+                    \nSee /help for more info.";
                     Job::msg_user(user_id, cx, text)
                 }
             }
@@ -150,7 +150,7 @@ impl State {
                     )
                 } else {
                     let text = "You need to be logged in to directly enroll\
-                    \nSee /help for more info";
+                    \nSee /help for more info.";
                     Job::msg_user(user_id, cx, text)
                 }
             }
@@ -176,12 +176,12 @@ impl State {
             Command::UrlAction { url_action } => Job::msg_user(
                 user_id,
                 cx,
-                format!("Changed your url_action to {:?}", url_action),
+                format!("Changed your url_action to {:?}.", url_action),
             ),
             Command::Jobs => Job::msg_user(user_id, cx, self.current_jobs(user_id)),
             Command::CancelAll => {
                 let count = self.cancel_jobs(user_id);
-                let text = format!("Canceled {} Jobs", count);
+                let text = format!("Canceled {} Jobs.", count);
                 Job::msg_user(user_id, cx, text)
             }
         }
@@ -197,11 +197,11 @@ impl State {
         trace!("new cmd err");
         let msg = match err {
             ParseError::UnknownCommand(_) => {
-                "Unknown Command. See /help for available commands".into()
+                "Unknown Command. See /help for available commands.".into()
             }
             ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
             ParseError::IncorrectFormat(err) => {
-                format!("Arguments are not formatted correctly: {}", err)
+                format!("Arguments are not formatted correctly: {}!", err)
             }
             ParseError::TooFewArguments {
                 expected,
@@ -218,7 +218,7 @@ impl State {
                     expected, found
                 )
             }
-            ParseError::Custom(err) => format!("{}. See /help for more info", err),
+            ParseError::Custom(err) => format!("{}. See /help for more info.", err),
         };
 
         Job::msg_user(user_id, cx, msg)

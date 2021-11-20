@@ -47,7 +47,7 @@ impl FromStr for Password {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("You need to supply a non-empty password".to_string())
+            Err("You need to supply a non-empty password!".to_string())
         } else {
             Ok(Self(s.to_string()))
         }
@@ -68,9 +68,9 @@ impl FromStr for LessonID {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("You need to supply a non-empty id".to_string())
+            Err("You need to supply a non-empty lesson_id!".to_string())
         } else if u64::from_str(s).is_err() {
-            Err("A lesson_id may only contain numbers".to_string())
+            Err("A lesson_id may only contain numbers!".to_string())
         } else {
             Ok(Self(s.to_string()))
         }
@@ -78,34 +78,34 @@ impl FromStr for LessonID {
 }
 
 #[derive(Debug, BotCommand)]
-#[command(rename = "lowercase", description = "These commands are supported:")]
+#[command(rename = "lowercase", description = "The following commands are supported:")]
 pub enum Command {
-    #[command(description = " - Show the Start Message")]
+    #[command(description = " - Display the Start Message.")]
     Start,
 
-    #[command(description = " - Displays this text")]
+    #[command(description = " - Displays this text.")]
     Help,
 
     #[command(
-        description = " <lesson_id> - Get notified when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get notified when a lesson starts or a spot becomes available.",
         parse_with = "split"
     )]
     Notify { lesson_id: LessonID },
 
     #[command(
-        description = " <lesson_id> - Get weekly notifications when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get weekly notifications when a lesson starts or a spot becomes available.",
         parse_with = "split"
     )]
     NotifyWeekly { lesson_id: LessonID },
 
     #[command(
-        description = " <lesson_id> - You get enrolled when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get automatically enrolled when a lesson starts or a spot becomes available.",
         parse_with = "split"
     )]
     Enroll { lesson_id: LessonID },
 
     #[command(
-        description = " <lesson_id> - You get enrolled when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get automatically enrolled when a lesson starts or a spot becomes available (repeats every week).",
         parse_with = "split"
     )]
     EnrollWeekly { lesson_id: LessonID },
