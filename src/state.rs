@@ -20,7 +20,7 @@ use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
 
 static START_MSG: &str = r"Welcome to the asvz bot.
-This Bot allows you to get notified/enrolled when a lesson starts or as soon a place opens up.
+This bot allows you to get notified/enrolled when a lesson starts or as soon as a spot opens up.
 The source code can be found here: (https://github.com/GeorgOhneH/asvz-bot)
 See /help for all available commands";
 
@@ -168,7 +168,7 @@ impl State {
                 let msg = if user_state.credentials.is_some() {
                     "Deleted your credentials"
                 } else {
-                    "Your have no credentials stored"
+                    "You have no credentials stored"
                 };
                 user_state.credentials = None;
                 Job::msg_user(user_id, cx, msg)
@@ -201,7 +201,7 @@ impl State {
             }
             ParseError::WrongBotName(name) => panic!("Wrong bot name: {}", name),
             ParseError::IncorrectFormat(err) => {
-                format!("Arguments are not correctly formatted: {}", err)
+                format!("Arguments are not formatted correctly: {}", err)
             }
             ParseError::TooFewArguments {
                 expected,
@@ -241,9 +241,9 @@ impl State {
                 lesson_id,
                 cred.username.clone(),
                 cred.password.clone(),
-                "Found lesson url. Starting a enrollment job. \
+                "Found lesson url. Starting an enrollment job. \
                 I you wanted to get notified you can change \
-                the default behavior. See /help",
+                the default behavior. See /help.",
             ),
             (UrlAction::Default | UrlAction::Notify, None) | (UrlAction::Notify, Some(_)) => {
                 Job::notify_with_msg(
@@ -252,7 +252,7 @@ impl State {
                     lesson_id,
                     "Found lesson url. Starting a notification job. \
                     I you wanted to enroll you can change \
-                    the default behavior. See /help",
+                    the default behavior. See /help.",
                 )
             }
             (UrlAction::Enroll, None) => Job::msg_user(

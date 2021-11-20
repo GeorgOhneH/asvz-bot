@@ -35,7 +35,7 @@ pub fn current_timestamp() -> i64 {
     i64::try_from(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("System Time before UNIX EPOCH")
+            .expect("System Time before UNIX EPOCH - how did we get here?")
             .as_secs(),
     )
     .expect("u64 to big")

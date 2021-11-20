@@ -47,7 +47,7 @@ impl FromStr for Password {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("You need to supply a non empty password".to_string())
+            Err("You need to supply a non-empty password".to_string())
         } else {
             Ok(Self(s.to_string()))
         }
@@ -68,9 +68,9 @@ impl FromStr for LessonID {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("You need to supply a non empty id".to_string())
+            Err("You need to supply a non-empty id".to_string())
         } else if u64::from_str(s).is_err() {
-            Err("A lesson_id has only numbers in it".to_string())
+            Err("A lesson_id may only contain numbers".to_string())
         } else {
             Ok(Self(s.to_string()))
         }
@@ -87,13 +87,13 @@ pub enum Command {
     Help,
 
     #[command(
-        description = " <lesson_id> - You get notified when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get notified when a lesson starts or a place becomes available",
         parse_with = "split"
     )]
     Notify { lesson_id: LessonID },
 
     #[command(
-        description = " <lesson_id> - You get weekly notified when a lesson starts or a place becomes available",
+        description = " <lesson_id> - Get weekly notifications when a lesson starts or a place becomes available",
         parse_with = "split"
     )]
     NotifyWeekly { lesson_id: LessonID },
@@ -111,9 +111,9 @@ pub enum Command {
     EnrollWeekly { lesson_id: LessonID },
 
     #[command(
-        description = " <username> <password> - Stores your username and password, so you can be directly enrolled. \
-    Important: Your password is never stored on persistent memory and it should be secure, \
-    but your are still giving a random person on the internet your password. \
+        description = " <username> <password> - Stores your username and password, so you can be enrolled automatically. \
+    Important: While your password is never stored in persistent memory, \
+    your are still giving a random person on the internet your password. \
     I wouldn't do it, if I were you :)",
         parse_with = "split"
     )]
@@ -127,7 +127,7 @@ pub enum Command {
 
     #[command(
         description = " {0, 1, 2} - Sets the behavior when a lesson url is found:\n\
-        \t 0: Default - if you are logged in I will enroll you otherwise I just notify you\n\
+        \t 0: Default - If you are logged in I will enroll you, otherwise I will only notify you\n\
         \t 1: Notify - I will always notify you\n\
         \t 2: Enroll - I will always enroll you\n",
         parse_with = "split"

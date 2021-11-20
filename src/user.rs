@@ -55,7 +55,7 @@ impl FromStr for UrlAction {
             "0" => Ok(UrlAction::Default),
             "1" => Ok(UrlAction::Notify),
             "2" => Ok(UrlAction::Enroll),
-            _ => Err("Use one of these: 0: Default, 1: Notify, 2: Enroll".into()),
+            _ => Err("Use one of following: 0: Default, 1: Notify, 2: Enroll".into()),
         }
     }
 }
