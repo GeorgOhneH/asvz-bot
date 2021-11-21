@@ -67,28 +67,28 @@ async fn notify_once(
     if from_ts > current_ts {
         // We still need to wait to enroll
         let wait_time = max(from_ts - current_ts - 60, 0) as u64;
-        reply!(cx, "I will remind you to enroll in {} seconds", wait_time).await?;
+        reply!(cx, "I will remind you to enroll in {} seconds.", wait_time).await?;
         tokio::time::sleep(Duration::from_secs(wait_time)).await;
         let current_time = current_timestamp();
-        let msg = format!("enrollment starts in {} seconds", from_ts - current_time);
+        let msg = format!("Enrollment starts in {} seconds!", from_ts - current_time);
         return Ok(ExistStatus::success(msg));
     }
 
     for count in 0.. {
         if current_ts > until_ts {
-            return Ok(ExistStatus::failure("You can no longer enroll"));
+            return Ok(ExistStatus::failure("You can no longer enroll."));
         }
 
         let fresh_data = ret_on_err!(lesson_data(client, id).await);
         let free_places = fresh_data.data.participants_max - fresh_data.data.participant_count;
         if free_places > 0 {
-            let msg = format!("There are currently {} free places", free_places);
+            let msg = format!("There are currently {} free spots.", free_places);
             return Ok(ExistStatus::Success(msg));
         }
         if count == 0 {
             reply!(
                 cx,
-                "It's already full. I will notify you, when something opens up"
+                "This lesson is already full. I will notify you, when a spot opens up."
             )
             .await?;
         }
