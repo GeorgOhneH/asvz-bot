@@ -3,6 +3,9 @@ use std::time::Duration;
 
 use crate::asvz::error::AsvzError;
 use reqwest::{Client, StatusCode};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use reqwest_tracing::TracingMiddleware;
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
@@ -23,7 +26,7 @@ pub async fn enroll(
     password: Password,
 ) -> Result<ExistStatus, RequestError> {
     trace!("new enroll job");
-    let client = Client::builder().cookie_store(true).build().unwrap();
+    let client = build_client();
     enroll_once(&client, cx, &id, &username, &password).await
 }
 
@@ -35,7 +38,7 @@ pub async fn enroll_weekly(
     password: Password,
 ) -> Result<ExistStatus, RequestError> {
     trace!("new enroll_weekly job");
-    let client = Client::builder().cookie_store(true).build().unwrap();
+    let client = build_client();
     let mut current_id = start_id;
     loop {
         match enroll_once(&client, cx, &current_id, &username, &password).await? {
@@ -55,7 +58,7 @@ pub async fn enroll_weekly(
 }
 
 async fn enroll_once(
-    client: &Client,
+    client: &ClientWithMiddleware,
     cx: &JobUpdateCx,
     id: &LessonID,
     username: &Username,
@@ -170,4 +173,12 @@ async fn enroll_once(
         tokio::time::sleep(Duration::from_secs(10)).await;
     }
     unreachable!()
+}
+
+fn build_client() -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+    ClientBuilder::new(Client::builder().cookie_store(true).build().unwrap())
+        .with(TracingMiddleware)
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
 }

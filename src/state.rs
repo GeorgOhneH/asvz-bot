@@ -10,14 +10,18 @@ use regex::Regex;
 use teloxide::adaptors::AutoSend;
 use teloxide::types::{MediaKind, MessageKind};
 use teloxide::utils::command::ParseError;
-use teloxide::{prelude::*, RequestError, utils::command::BotCommand};
+use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use tokio::task::JoinError;
-use tracing::{instrument, trace};
+use tracing::{error, instrument, trace};
 
 use crate::cmd::{Command, LessonID};
-use crate::job::{Job, JobKind};
+use crate::job::{InternalJob, Job, JobKind};
+use crate::job_err::JobError;
 use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
+use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 
 static START_MSG: &str = r"Welcome to the ASVZ telegram bot.
 This bot allows you to get notified/enroll when a lesson starts or as soon as a spot opens up.
@@ -36,7 +40,7 @@ pub struct State {
 }
 
 impl Stream for State {
-    type Item = Result<Result<(), RequestError>, JoinError>;
+    type Item = Result<Result<(), JobError>, JoinError>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -66,11 +70,11 @@ impl State {
                     r.push_str("\nNotifyWeekly ");
                     r.push_str(id.as_str());
                 }
-                JobKind::Enroll(id) => {
+                JobKind::Enroll(id, _, _) => {
                     r.push_str("\nEnroll ");
                     r.push_str(id.as_str());
                 }
-                JobKind::EnrollWeekly(id) => {
+                JobKind::EnrollWeekly(id, _, _) => {
                     r.push_str("\nEnrollWeekly ");
                     r.push_str(id.as_str());
                 }
@@ -93,7 +97,7 @@ impl State {
         count
     }
 
-    pub fn handle_update(&mut self, cx: UpdateWithCx<AutoSend<Bot>, Message>) {
+    pub fn handle_update(&mut self, cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>) {
         if let Some((msg, user_id)) = extract_id_text(&cx.update) {
             let job = match Command::parse(msg, BOT_NAME) {
                 Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
@@ -110,48 +114,58 @@ impl State {
         }
     }
 
+    #[instrument(skip(self))]
+    pub fn handle_err(&mut self, err: JobError) {
+        error!("Got JobError");
+        let JobError {
+            source,
+            user_id,
+            job_kind,
+            cx,
+        } = err;
+        match source {
+            RequestError::RetryAfter(wait) => sleep(Duration::from_secs(wait as u64 + 5)),
+            _ => (),
+        };
+        let job = Job::new_with_msg(
+            job_kind,
+            "An unexpected error occurred. Restarting your Job",
+            user_id,
+            cx,
+        );
+        self.jobs.push(job)
+    }
+
     #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
     pub fn handle_cmd(
         &mut self,
         cmd: Command,
         user_id: UserId,
-        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
     ) -> Job {
         trace!("new cmd");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
-        match cmd {
-            Command::Start => Job::msg_user(user_id, cx, START_MSG),
-            Command::Help => Job::msg_user(user_id, cx, Command::descriptions()),
-            Command::Notify { lesson_id } => Job::notify(user_id, cx, lesson_id),
-            Command::NotifyWeekly { lesson_id } => Job::notify_weekly(user_id, cx, lesson_id),
+        let job_kind = match cmd {
+            Command::Start => InternalJob::MsgUser(START_MSG.to_string()).into(),
+            Command::Help => InternalJob::MsgUser(Command::descriptions()).into(),
+            Command::Notify { lesson_id } => JobKind::Notify(lesson_id),
+            Command::NotifyWeekly { lesson_id } => JobKind::NotifyWeekly(lesson_id),
             Command::Enroll { lesson_id } => {
                 if let Some(cred) = &user_state.credentials {
-                    Job::enroll(
-                        user_id,
-                        cx,
-                        lesson_id,
-                        cred.username.clone(),
-                        cred.password.clone(),
-                    )
+                    JobKind::Enroll(lesson_id, cred.username.clone(), cred.password.clone())
                 } else {
                     let text = "You need to be logged in to directly enroll\
                     \nSee /help for more info.";
-                    Job::msg_user(user_id, cx, text)
+                    InternalJob::MsgUser(text.to_string()).into()
                 }
             }
             Command::EnrollWeekly { lesson_id } => {
                 if let Some(cred) = &user_state.credentials {
-                    Job::enroll_weekly(
-                        user_id,
-                        cx,
-                        lesson_id,
-                        cred.username.clone(),
-                        cred.password.clone(),
-                    )
+                    JobKind::EnrollWeekly(lesson_id, cred.username.clone(), cred.password.clone())
                 } else {
                     let text = "You need to be logged in to directly enroll\
                     \nSee /help for more info.";
-                    Job::msg_user(user_id, cx, text)
+                    InternalJob::MsgUser(text.to_string()).into()
                 }
             }
             Command::Login { username, password } => {
@@ -162,7 +176,7 @@ impl State {
                     user_state.credentials = Some(LoginCredentials::new(username, password));
                     "Stored credentials"
                 };
-                Job::reply_and_delete(user_id, cx, msg)
+                InternalJob::DeleteMsgUser(msg.to_string()).into()
             }
             Command::Logout => {
                 let msg = if user_state.credentials.is_some() {
@@ -171,20 +185,20 @@ impl State {
                     "You have no credentials stored"
                 };
                 user_state.credentials = None;
-                Job::msg_user(user_id, cx, msg)
+                InternalJob::MsgUser(msg.to_string()).into()
             }
-            Command::UrlAction { url_action } => Job::msg_user(
-                user_id,
-                cx,
-                format!("Changed your url_action to {:?}.", url_action),
-            ),
-            Command::Jobs => Job::msg_user(user_id, cx, self.current_jobs(user_id)),
+            Command::UrlAction { url_action } => {
+                InternalJob::MsgUser(format!("Changed your url_action to {:?}.", url_action)).into()
+            }
+            Command::Jobs => InternalJob::MsgUser(self.current_jobs(user_id)).into(),
             Command::CancelAll => {
                 let count = self.cancel_jobs(user_id);
                 let text = format!("Canceled {} Jobs.", count);
-                Job::msg_user(user_id, cx, text)
+                InternalJob::MsgUser(text.to_string()).into()
             }
-        }
+        };
+
+        Job::new(job_kind, user_id, cx)
     }
 
     #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
@@ -192,7 +206,7 @@ impl State {
         &mut self,
         err: ParseError,
         user_id: UserId,
-        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
     ) -> Job {
         trace!("new cmd err");
         let msg = match err {
@@ -221,7 +235,8 @@ impl State {
             ParseError::Custom(err) => format!("{}. See /help for more info.", err),
         };
 
-        Job::msg_user(user_id, cx, msg)
+        let kind = InternalJob::MsgUser(msg).into();
+        Job::new(kind, user_id, cx)
     }
 
     #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
@@ -229,37 +244,32 @@ impl State {
         &mut self,
         lesson_id: LessonID,
         user_id: UserId,
-        cx: UpdateWithCx<AutoSend<Bot>, Message>,
+        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
     ) -> Job {
         trace!("new lesson url");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
 
         match (user_state.settings.url_action, &user_state.credentials) {
-            (UrlAction::Default | UrlAction::Enroll, Some(cred)) => Job::enroll_with_msg(
-                user_id,
-                cx,
-                lesson_id,
-                cred.username.clone(),
-                cred.password.clone(),
-                "Found lesson url. Starting an enrollment job. \
-                I you wanted to get notified you can change \
-                the default behavior. See /help.",
-            ),
-            (UrlAction::Default | UrlAction::Notify, None) | (UrlAction::Notify, Some(_)) => {
-                Job::notify_with_msg(
-                    user_id,
-                    cx,
-                    lesson_id,
-                    "Found lesson url. Starting a notification job. \
-                    I you wanted to enroll you can change \
-                    the default behavior. See /help.",
-                )
+            (UrlAction::Default | UrlAction::Enroll, Some(cred)) => {
+                let kind = JobKind::Enroll(lesson_id, cred.username.clone(), cred.password.clone());
+                let msg = "Found lesson url. Starting an enrollment job. \
+                If you wanted to get notified you can change \
+                the default behavior. See /help.";
+                Job::new_with_msg(kind, msg, user_id, cx)
             }
-            (UrlAction::Enroll, None) => Job::msg_user(
-                user_id,
-                cx,
-                "I can't enroll you without logging in. See /help for more info.",
-            ),
+            (UrlAction::Default | UrlAction::Notify, None) | (UrlAction::Notify, Some(_)) => {
+                let kind = JobKind::Notify(lesson_id);
+                let msg = "Found lesson url. Starting a notification job. \
+                    If you wanted to enroll you can change \
+                    the default behavior. See /help.";
+                Job::new_with_msg(kind, msg, user_id, cx)
+            }
+            (UrlAction::Enroll, None) => {
+                let msg =
+                    "I can't enroll you without you being logged in. See /help for more info.";
+                let kind = InternalJob::MsgUser(msg.to_string());
+                Job::new_with_msg(kind.into(), msg, user_id, cx)
+            }
         }
     }
 }

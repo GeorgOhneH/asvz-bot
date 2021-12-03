@@ -2,7 +2,10 @@
 #![allow(dead_code)]
 #![allow(clippy::new_without_default)]
 
+use crate::asvz::lesson::search_data;
+use crate::cmd::LessonID;
 use futures::stream::StreamExt;
+use std::sync::Arc;
 use reqwest::Client;
 use teloxide::dispatching::update_listeners;
 use teloxide::dispatching::update_listeners::AsUpdateStream;
@@ -10,19 +13,18 @@ use teloxide::prelude::*;
 use teloxide::types::UpdateKind;
 use tracing::{info, Level};
 use tracing_subscriber::EnvFilter;
-use crate::asvz::lesson::search_data;
-use crate::cmd::LessonID;
 
 use crate::state::State;
 
 pub mod asvz;
 pub mod cmd;
-pub mod job_fns;
-pub mod state;
-pub mod utils;
 pub mod job;
-pub mod user;
+pub mod job_err;
+pub mod job_fns;
 pub mod job_update_cx;
+pub mod state;
+pub mod user;
+pub mod utils;
 
 static BOT_NAME: &str = "asvz_bot";
 
@@ -55,16 +57,20 @@ async fn run() {
         tokio::select! {
             Some(update) = bot_stream.next() => {
                 if let UpdateKind::Message(msg) = update.unwrap().kind {
-                    let cx = UpdateWithCx {
+                    let cx = Arc::new(UpdateWithCx {
                         requester: bot.clone(),
                         update: msg,
-                    };
+                    });
                     state.handle_update(cx);
                 }
             },
             Some(handle_result) = state.next() => {
                 match handle_result {
-                    Ok(result) => result.unwrap(),
+                    Ok(result) => {
+                        if let Err(err) = result {
+                            state.handle_err(err)
+                        }
+                    },
                     Err(err) => {
                         if let Ok(reason) = err.try_into_panic() {
                             std::panic::resume_unwind(reason);

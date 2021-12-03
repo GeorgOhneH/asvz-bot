@@ -8,6 +8,7 @@ use tracing::{instrument, trace};
 use url::Url;
 
 use crate::asvz::error::AsvzError;
+use reqwest_middleware::ClientWithMiddleware;
 
 lazy_static! {
     static ref DUMMY_URL: Url = Url::parse("https://www.google.com/").unwrap();
@@ -44,7 +45,7 @@ fn unescape(str: &str) -> String {
 
 #[instrument(skip(client, username, password))]
 pub async fn asvz_login(
-    client: &Client,
+    client: &ClientWithMiddleware,
     username: &str,
     password: &str,
 ) -> Result<String, AsvzError> {
@@ -115,7 +116,7 @@ pub async fn asvz_login(
 }
 
 async fn aai_login<T: Serialize + ?Sized>(
-    client: &Client,
+    client: &ClientWithMiddleware,
     username: &str,
     password: &str,
     url: Url,

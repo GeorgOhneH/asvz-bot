@@ -5,6 +5,9 @@ use std::time::Duration;
 use crate::asvz::error::AsvzError;
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use reqwest_tracing::TracingMiddleware;
 use tracing::{instrument, trace};
 
 use crate::asvz::lesson::{lesson_data, search_data};
@@ -21,7 +24,7 @@ pub async fn notify(
     id: LessonID,
 ) -> Result<ExistStatus, RequestError> {
     trace!("new notify job");
-    let client = reqwest::Client::new();
+    let client = build_client();
     notify_once(&client, cx, &id).await
 }
 
@@ -31,7 +34,7 @@ pub async fn notify_weekly(
     start_id: LessonID,
 ) -> Result<ExistStatus, RequestError> {
     trace!("new notify_weekly job");
-    let client = reqwest::Client::new();
+    let client = build_client();
     let mut current_id = start_id;
     loop {
         match notify_once(&client, cx, &current_id).await? {
@@ -52,7 +55,7 @@ pub async fn notify_weekly(
 }
 
 async fn notify_once(
-    client: &Client,
+    client: &ClientWithMiddleware,
     cx: &JobUpdateCx,
     id: &LessonID,
 ) -> Result<ExistStatus, RequestError> {
@@ -95,4 +98,13 @@ async fn notify_once(
         tokio::time::sleep(Duration::from_secs(10)).await;
     }
     unreachable!()
+}
+
+
+fn build_client() -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+    ClientBuilder::new(Client::builder().cookie_store(true).build().unwrap())
+        .with(TracingMiddleware)
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
 }

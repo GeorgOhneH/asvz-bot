@@ -9,6 +9,7 @@ use reqwest::Client;
 use std::collections::HashMap;
 use tracing::{instrument, trace, warn};
 use url::Url;
+use reqwest_middleware::ClientWithMiddleware;
 
 lazy_static! {
     static ref LOCATION_URL_RE: Regex = Regex::new("/anlage/([0-9]+)-").unwrap();
@@ -20,7 +21,7 @@ lazy_static! {
 }
 
 #[instrument(skip(client))]
-pub async fn lesson_data(client: &Client, id: &LessonID) -> Result<LessonData, AsvzError> {
+pub async fn lesson_data(client: &ClientWithMiddleware, id: &LessonID) -> Result<LessonData, AsvzError> {
     trace!("fetching lesson data");
     let url = format!(
         "https://schalter.asvz.ch/tn-api/api/Lessons/{}",
@@ -43,7 +44,7 @@ pub async fn lesson_data(client: &Client, id: &LessonID) -> Result<LessonData, A
 // https://www.asvz.ch/asvz_api/event_search?_format=json&limit=60&f[0]=sport:122920&f[1]=facility:45613&date=2021-11-08 06:35
 #[instrument(skip(client))]
 pub async fn search_data(
-    client: &Client,
+    client: &ClientWithMiddleware,
     id: &LessonID,
     offset: i64,
 ) -> Result<EventList, AsvzError> {
@@ -87,7 +88,7 @@ pub async fn search_data(
     Ok(event_list)
 }
 
-pub async fn get_sport_data(client: &Client) -> Result<HashMap<String, String>, AsvzError> {
+pub async fn get_sport_data(client: &ClientWithMiddleware) -> Result<HashMap<String, String>, AsvzError> {
     trace!("get_sport_data");
     let sport_search: SportSearch = client
         .get(SPORT_SEARCH_URL.clone())

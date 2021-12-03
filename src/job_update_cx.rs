@@ -1,14 +1,15 @@
 use crate::cmd::LessonID;
 use teloxide::prelude::*;
 use teloxide::RequestError;
+use std::sync::Arc;
 
 pub struct JobUpdateCx {
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
     id: LessonID,
 }
 
 impl JobUpdateCx {
-    pub fn new(cx: UpdateWithCx<AutoSend<Bot>, Message>, id: LessonID) -> Self {
+    pub fn new(cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>, id: LessonID) -> Self {
         Self { cx, id }
     }
 

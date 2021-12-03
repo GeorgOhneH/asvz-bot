@@ -5,7 +5,7 @@ use tracing::{instrument, trace};
 
 #[instrument(skip(cx, text))]
 pub async fn msg_user(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
     text: String,
 ) -> Result<(), RequestError> {
     trace!("new msg job");
@@ -16,7 +16,7 @@ pub async fn msg_user(
 
 #[instrument(skip(cx, text))]
 pub async fn reply_and_del(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
+    cx: &UpdateWithCx<AutoSend<Bot>, Message>,
     text: String,
 ) -> Result<(), RequestError> {
     trace!("reply_and_del");

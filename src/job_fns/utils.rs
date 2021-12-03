@@ -2,8 +2,12 @@ use futures::Future;
 use teloxide::prelude::*;
 use teloxide::RequestError;
 
+use crate::job::JobKind;
+use crate::job_err::JobError;
 use crate::job_fns::ExistStatus;
 use crate::job_update_cx::JobUpdateCx;
+use crate::user::UserId;
+use std::sync::Arc;
 
 pub async fn wrap_exit_status(
     cx: &JobUpdateCx,
@@ -18,4 +22,14 @@ pub async fn wrap_exit_status(
         ExistStatus::Error(msg) => cx.answer(format!("{}\nJob canceled", msg)).await?,
     };
     Ok(())
+}
+
+pub async fn attach_ctx<T>(
+    fut: impl Future<Output = Result<T, RequestError>>,
+    user_id: UserId,
+    job_kind: JobKind,
+    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+) -> Result<T, JobError> {
+    fut.await
+        .map_err(|err| JobError::new(err, user_id, job_kind, cx))
 }
