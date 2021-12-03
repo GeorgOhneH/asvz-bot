@@ -2,10 +2,9 @@
 #![allow(dead_code)]
 #![allow(clippy::new_without_default)]
 
-use crate::asvz::lesson::search_data;
-use crate::cmd::LessonID;
-use futures::stream::StreamExt;
 use std::sync::Arc;
+
+use futures::stream::StreamExt;
 use reqwest::Client;
 use teloxide::dispatching::update_listeners;
 use teloxide::dispatching::update_listeners::AsUpdateStream;
@@ -14,9 +13,11 @@ use teloxide::types::UpdateKind;
 use tracing::{info, Level};
 use tracing_subscriber::EnvFilter;
 
+use asvz::lesson::search_data;
+use asvz::lesson::LessonID;
+
 use crate::state::State;
 
-pub mod asvz;
 pub mod cmd;
 pub mod job;
 pub mod job_err;
@@ -36,7 +37,7 @@ async fn main() {
 async fn run() {
     let filter = EnvFilter::from_default_env()
         .add_directive(Level::TRACE.into())
-        .add_directive("my_crate=trace".parse().unwrap())
+        // .add_directive("my_crate=trace".parse().unwrap())
         .add_directive("hyper=info".parse().unwrap());
     let subscriber = tracing_subscriber::fmt().with_env_filter(filter).finish();
     tracing::subscriber::set_global_default(subscriber).expect("Unable to make logging");

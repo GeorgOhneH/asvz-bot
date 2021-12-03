@@ -1,17 +1,18 @@
-use reqwest::Client;
 use std::cmp::max;
 use std::time::Duration;
 
-use crate::asvz::error::AsvzError;
-use teloxide::adaptors::AutoSend;
-use teloxide::{prelude::*, RequestError};
+use reqwest::Client;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use reqwest_tracing::TracingMiddleware;
+use teloxide::adaptors::AutoSend;
+use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
 
-use crate::asvz::lesson::{lesson_data, search_data};
-use crate::cmd::LessonID;
+use asvz::error::AsvzError;
+use asvz::lesson::LessonID;
+use asvz::lesson::{lesson_data, search_data};
+
 use crate::job_fns::ExistStatus;
 use crate::job_update_cx::JobUpdateCx;
 use crate::utils::current_timestamp;
@@ -19,10 +20,7 @@ use crate::utils::reply;
 use crate::utils::ret_on_err;
 
 #[instrument(skip(cx))]
-pub async fn notify(
-    cx: &JobUpdateCx,
-    id: LessonID,
-) -> Result<ExistStatus, RequestError> {
+pub async fn notify(cx: &JobUpdateCx, id: LessonID) -> Result<ExistStatus, RequestError> {
     trace!("new notify job");
     let client = build_client();
     notify_once(&client, cx, &id).await
@@ -99,7 +97,6 @@ async fn notify_once(
     }
     unreachable!()
 }
-
 
 fn build_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);

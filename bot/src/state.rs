@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::task::Context;
+use std::thread::sleep;
+use std::time::Duration;
 
 use futures::stream::FuturesUnordered;
 use futures::Stream;
@@ -14,19 +17,18 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use tokio::task::JoinError;
 use tracing::{error, instrument, trace};
 
-use crate::cmd::{Command, LessonID};
+use asvz::lesson::LessonID;
+
+use crate::cmd::Command;
 use crate::job::{InternalJob, Job, JobKind};
 use crate::job_err::JobError;
 use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
-use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 
 static START_MSG: &str = r"Welcome to the ASVZ telegram bot.
 This bot allows you to get notified/enroll when a lesson starts or as soon as a spot opens up.
-The source code is available online: (https://github.com/GeorgOhneH/asvz-bot)
-See /help for all available commands";
+See /help for all available commands.
+The source code is available online: (https://github.com/GeorgOhneH/asvz-bot)";
 
 lazy_static! {
     static ref LESSON_URL_RE: Regex =
@@ -122,17 +124,16 @@ impl State {
             user_id,
             job_kind,
             cx,
+            retry_count,
         } = err;
         match source {
             RequestError::RetryAfter(wait) => sleep(Duration::from_secs(wait as u64 + 5)),
             _ => (),
         };
-        let job = Job::new_with_msg(
-            job_kind,
-            "An unexpected error occurred. Restarting your Job",
-            user_id,
-            cx,
-        );
+        let job = Job::builder(job_kind, user_id, cx)
+            .pre_msg("An unexpected error occurred. Restarting your Job")
+            .retry_count(retry_count + 1)
+            .build();
         self.jobs.push(job)
     }
 
@@ -194,7 +195,7 @@ impl State {
             Command::CancelAll => {
                 let count = self.cancel_jobs(user_id);
                 let text = format!("Canceled {} Jobs.", count);
-                InternalJob::MsgUser(text.to_string()).into()
+                InternalJob::MsgUser(text).into()
             }
         };
 
@@ -255,20 +256,20 @@ impl State {
                 let msg = "Found lesson url. Starting an enrollment job. \
                 If you wanted to get notified you can change \
                 the default behavior. See /help.";
-                Job::new_with_msg(kind, msg, user_id, cx)
+                Job::builder(kind, user_id, cx).pre_msg(msg).build()
             }
             (UrlAction::Default | UrlAction::Notify, None) | (UrlAction::Notify, Some(_)) => {
                 let kind = JobKind::Notify(lesson_id);
                 let msg = "Found lesson url. Starting a notification job. \
                     If you wanted to enroll you can change \
                     the default behavior. See /help.";
-                Job::new_with_msg(kind, msg, user_id, cx)
+                Job::builder(kind, user_id, cx).pre_msg(msg).build()
             }
             (UrlAction::Enroll, None) => {
                 let msg =
                     "I can't enroll you without you being logged in. See /help for more info.";
                 let kind = InternalJob::MsgUser(msg.to_string());
-                Job::new_with_msg(kind.into(), msg, user_id, cx)
+                Job::builder(kind.into(), user_id, cx).pre_msg(msg).build()
             }
         }
     }

@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
@@ -13,7 +14,6 @@ pub async fn msg_user(
     Ok(())
 }
 
-
 #[instrument(skip(cx, text))]
 pub async fn reply_and_del(
     cx: &UpdateWithCx<AutoSend<Bot>, Message>,
@@ -25,4 +25,3 @@ pub async fn reply_and_del(
     cx.delete_message().await?;
     Ok(())
 }
-

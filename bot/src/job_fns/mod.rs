@@ -13,7 +13,7 @@ pub mod utils;
 pub enum ExistStatus {
     Success(String),
     Failure(String),
-    Error(String)
+    Error(String),
 }
 
 impl ExistStatus {

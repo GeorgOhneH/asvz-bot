@@ -2,7 +2,8 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
-use asvz_bot_derive::BotCommand;
+use asvz::lesson::LessonID;
+use bot_derive::BotCommand;
 
 use crate::user::UrlAction;
 
@@ -54,31 +55,11 @@ impl FromStr for Password {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LessonID(String);
-
-impl LessonID {
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl FromStr for LessonID {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            Err("You need to supply a non-empty lesson_id!".to_string())
-        } else if u64::from_str(s).is_err() {
-            Err("A lesson_id may only contain numbers!".to_string())
-        } else {
-            Ok(Self(s.to_string()))
-        }
-    }
-}
-
 #[derive(Debug, BotCommand)]
-#[command(rename = "lowercase", description = "The following commands are supported:")]
+#[command(
+    rename = "lowercase",
+    description = "The following commands are supported:"
+)]
 pub enum Command {
     #[command(description = " - Display the Start Message.")]
     Start,

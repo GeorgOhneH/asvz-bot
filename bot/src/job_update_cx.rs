@@ -1,7 +1,9 @@
-use crate::cmd::LessonID;
+use std::sync::Arc;
+
 use teloxide::prelude::*;
 use teloxide::RequestError;
-use std::sync::Arc;
+
+use asvz::lesson::LessonID;
 
 pub struct JobUpdateCx {
     cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,

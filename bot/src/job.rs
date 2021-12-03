@@ -1,18 +1,20 @@
-use futures::FutureExt;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
 
+use futures::FutureExt;
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tokio::task::{JoinError, JoinHandle};
 
-use crate::cmd::{LessonID, Password, Username};
+use asvz::lesson::LessonID;
+
+use crate::cmd::{Password, Username};
 use crate::job_err::JobError;
 use crate::job_fns;
 use crate::job_update_cx::JobUpdateCx;
 use crate::user::UserId;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Job {
@@ -27,32 +29,14 @@ impl Job {
         user_id: UserId,
         cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
     ) -> Self {
-        let fut = kind.clone().to_fut(cx.clone());
-        Self {
-            kind: kind.clone(),
-            user_id,
-            handle: tokio::spawn(job_fns::utils::attach_ctx(fut, user_id, kind, cx)),
-        }
+        JobBuilder::new(kind, user_id, cx).build()
     }
-
-    pub fn new_with_msg(
+    pub fn builder(
         kind: JobKind,
-        msg: impl Into<String>,
         user_id: UserId,
         cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
-    ) -> Self {
-        let msg = msg.into();
-        let fut = kind.clone().to_fut(cx.clone());
-        let cx_clone = cx.clone();
-        let fut_with_msg = async move {
-            job_fns::msg_user(&cx_clone, msg).await?;
-            fut.await
-        };
-        Self {
-            kind: kind.clone(),
-            user_id,
-            handle: tokio::spawn(job_fns::utils::attach_ctx(fut_with_msg, user_id, kind, cx)),
-        }
+    ) -> JobBuilder {
+        JobBuilder::new(kind, user_id, cx)
     }
 }
 
@@ -61,6 +45,71 @@ impl Future for Job {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> std::task::Poll<Self::Output> {
         Pin::new(&mut self.handle).poll(cx)
+    }
+}
+
+pub struct JobBuilder {
+    kind: JobKind,
+    retry_count: usize,
+    user_id: UserId,
+    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    pre_msg: Option<String>,
+}
+
+impl JobBuilder {
+    pub fn new(
+        kind: JobKind,
+        user_id: UserId,
+        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    ) -> Self {
+        Self {
+            kind,
+            user_id,
+            cx,
+            retry_count: 0,
+            pre_msg: None,
+        }
+    }
+
+    pub fn pre_msg(mut self, msg: impl Into<String>) -> Self {
+        self.pre_msg = Some(msg.into());
+        self
+    }
+
+    pub fn retry_count(mut self, retry_count: usize) -> Self {
+        self.retry_count = retry_count;
+        self
+    }
+
+    pub fn build(self) -> Job {
+        let fut = self.kind.clone().to_fut(self.cx.clone());
+        let handle = if let Some(pre_msg) = self.pre_msg {
+            let cx_clone = self.cx.clone();
+            let fut = async move {
+                job_fns::msg_user(&cx_clone, pre_msg).await?;
+                fut.await
+            };
+            tokio::spawn(job_fns::utils::attach_ctx(
+                fut,
+                self.user_id,
+                self.kind.clone(),
+                self.cx,
+                self.retry_count,
+            ))
+        } else {
+            tokio::spawn(job_fns::utils::attach_ctx(
+                fut,
+                self.user_id,
+                self.kind.clone(),
+                self.cx,
+                self.retry_count,
+            ))
+        };
+        Job {
+            kind: self.kind,
+            user_id: self.user_id,
+            handle,
+        }
     }
 }
 

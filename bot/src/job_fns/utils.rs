@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures::Future;
 use teloxide::prelude::*;
 use teloxide::RequestError;
@@ -7,7 +9,6 @@ use crate::job_err::JobError;
 use crate::job_fns::ExistStatus;
 use crate::job_update_cx::JobUpdateCx;
 use crate::user::UserId;
-use std::sync::Arc;
 
 pub async fn wrap_exit_status(
     cx: &JobUpdateCx,
@@ -29,7 +30,8 @@ pub async fn attach_ctx<T>(
     user_id: UserId,
     job_kind: JobKind,
     cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    retry_count: usize,
 ) -> Result<T, JobError> {
     fut.await
-        .map_err(|err| JobError::new(err, user_id, job_kind, cx))
+        .map_err(|err| JobError::new(err, user_id, job_kind, cx, retry_count))
 }

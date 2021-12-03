@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::Client;
+use reqwest_middleware::ClientWithMiddleware;
 use serde::Serialize;
 use tracing::{instrument, trace};
 use url::Url;
 
-use crate::asvz::error::AsvzError;
-use reqwest_middleware::ClientWithMiddleware;
+use crate::error::AsvzError;
 
 lazy_static! {
     static ref DUMMY_URL: Url = Url::parse("https://www.google.com/").unwrap();

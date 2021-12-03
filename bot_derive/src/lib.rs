@@ -1,8 +1,7 @@
-mod attr;
-mod command;
-mod command_enum;
-mod fields_parse;
-mod rename_rules;
+use proc_macro::TokenStream;
+
+use quote::{quote, ToTokens};
+use syn::{parse_macro_input, DeriveInput, Fields};
 
 use crate::{
     attr::{Attr, VecAttrs},
@@ -10,9 +9,12 @@ use crate::{
     command_enum::CommandEnum,
     fields_parse::{impl_parse_args_named, impl_parse_args_unnamed},
 };
-use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, Fields};
+
+mod attr;
+mod command;
+mod command_enum;
+mod fields_parse;
+mod rename_rules;
 
 macro_rules! get_or_return {
     ($($some:tt)*) => {
@@ -101,9 +103,7 @@ fn impl_descriptions(infos: &[Command], global: &CommandEnum) -> quote::__privat
     let description = infos.iter().map(|info| {
         info.description
             .as_deref()
-            .map(|e| {
-                e.to_string()
-            })
+            .map(|e| e.to_string())
             .unwrap_or_default()
     });
     let result_iter = command.zip(description).map(|(c, d)| {
