@@ -5,8 +5,8 @@
 use crate::asvz::lesson::search_data;
 use crate::cmd::LessonID;
 use futures::stream::StreamExt;
-use std::sync::Arc;
 use reqwest::Client;
+use std::sync::Arc;
 use teloxide::dispatching::update_listeners;
 use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::prelude::*;
@@ -56,19 +56,24 @@ async fn run() {
     loop {
         tokio::select! {
             Some(update) = bot_stream.next() => {
-                if let UpdateKind::Message(msg) = update.unwrap().kind {
-                    let cx = Arc::new(UpdateWithCx {
-                        requester: bot.clone(),
-                        update: msg,
-                    });
-                    state.handle_update(cx);
+                match update {
+                    Ok(update) => {
+                        if let UpdateKind::Message(msg) = update.kind {
+                            let cx = Arc::new(UpdateWithCx {
+                                requester: bot.clone(),
+                                update: msg,
+                            });
+                            state.handle_update(cx);
+                        }
+                    }
+                    Err(err) => state.handle_req_err(err),
                 }
             },
             Some(handle_result) = state.next() => {
                 match handle_result {
                     Ok(result) => {
                         if let Err(err) = result {
-                            state.handle_err(err)
+                            state.handle_job_err(err)
                         }
                     },
                     Err(err) => {

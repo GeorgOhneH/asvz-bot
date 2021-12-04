@@ -115,7 +115,16 @@ impl State {
     }
 
     #[instrument(skip(self))]
-    pub fn handle_err(&mut self, err: JobError) {
+    pub fn handle_req_err(&mut self, err: RequestError) {
+        error!("Got RequestError");
+        match err {
+            RequestError::RetryAfter(wait) => sleep(Duration::from_secs(wait as u64 + 5)),
+            _ => (),
+        };
+    }
+
+    #[instrument(skip(self))]
+    pub fn handle_job_err(&mut self, err: JobError) {
         error!("Got JobError");
         let JobError {
             source,
@@ -123,10 +132,7 @@ impl State {
             job_kind,
             cx,
         } = err;
-        match source {
-            RequestError::RetryAfter(wait) => sleep(Duration::from_secs(wait as u64 + 5)),
-            _ => (),
-        };
+        self.handle_req_err(source);
         let job = Job::new_with_msg(
             job_kind,
             "An unexpected error occurred. Restarting your Job",
