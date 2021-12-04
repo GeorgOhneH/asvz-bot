@@ -18,7 +18,6 @@ use asvz::lesson::LessonID;
 
 use crate::state::State;
 
-pub mod asvz;
 pub mod cmd;
 pub mod job;
 pub mod job_err;

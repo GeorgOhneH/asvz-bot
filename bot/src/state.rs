@@ -6,6 +6,7 @@ use std::task::Context;
 use std::thread::sleep;
 use std::time::Duration;
 
+use asvz::lesson::LessonID;
 use futures::stream::FuturesUnordered;
 use futures::Stream;
 use lazy_static::lazy_static;
@@ -17,14 +18,11 @@ use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
 use tokio::task::JoinError;
 use tracing::{error, instrument, trace};
 
-use crate::cmd::{Command, LessonID};
+use crate::cmd::Command;
 use crate::job::{InternalJob, Job, JobKind};
 use crate::job_err::JobError;
 use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
-use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 
 static START_MSG: &str = r"Welcome to the ASVZ telegram bot.
 This bot allows you to get notified/enroll when a lesson starts or as soon as a spot opens up.
@@ -137,12 +135,10 @@ impl State {
             retry_count,
         } = err;
         self.handle_req_err(source);
-        let job = Job::new_with_msg(
-            job_kind,
-            "An unexpected error occurred. Restarting your Job",
-            user_id,
-            cx,
-        );
+        let job = Job::builder(job_kind, user_id, cx)
+            .pre_msg("An unexpected error occurred. Restarting your Job")
+            .retry_count(retry_count + 1)
+            .build();
         self.jobs.push(job)
     }
 
