@@ -1,11 +1,13 @@
 use std::str::FromStr;
-use crate::cmd::LessonID;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use tracing::warn;
+
+use crate::lesson::LessonID;
 
 lazy_static! {
     static ref LESSON_URL_RE: Regex = Regex::new("/tn/lessons/([0-9]+)").unwrap();
@@ -103,7 +105,10 @@ pub struct Result {
 
 impl Result {
     pub fn lesson_id(&self) -> Option<LessonID> {
-        Some(LessonID::from_str(&LESSON_URL_RE.captures(&self.url)?[1]).expect("Captures non numbers"))
+        Some(
+            LessonID::from_str(&LESSON_URL_RE.captures(&self.url)?[1])
+                .expect("Captures non numbers"),
+        )
     }
 }
 

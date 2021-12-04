@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::HashMap;
 
 // https://asvz.ch/asvz_api/sport_search?_format=json&limit=999
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

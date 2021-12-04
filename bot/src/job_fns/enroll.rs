@@ -1,7 +1,6 @@
 use std::cmp::max;
 use std::time::Duration;
 
-use crate::asvz::error::AsvzError;
 use reqwest::{Client, StatusCode};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -10,9 +9,12 @@ use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
 
-use crate::asvz::lesson::{lesson_data, search_data};
-use crate::asvz::login::asvz_login;
-use crate::cmd::{LessonID, Password, Username};
+use asvz::error::AsvzError;
+use asvz::lesson::LessonID;
+use asvz::lesson::{lesson_data, search_data};
+use asvz::login::asvz_login;
+
+use crate::cmd::{Password, Username};
 use crate::job_fns::ExistStatus;
 use crate::job_update_cx::JobUpdateCx;
 use crate::utils::ret_on_err;

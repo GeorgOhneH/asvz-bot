@@ -2,17 +2,19 @@
 #![allow(dead_code)]
 #![allow(clippy::new_without_default)]
 
-use crate::asvz::lesson::search_data;
-use crate::cmd::LessonID;
+use std::sync::Arc;
+
 use futures::stream::StreamExt;
 use reqwest::Client;
-use std::sync::Arc;
 use teloxide::dispatching::update_listeners;
 use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::prelude::*;
 use teloxide::types::UpdateKind;
 use tracing::{info, Level};
 use tracing_subscriber::EnvFilter;
+
+use asvz::lesson::search_data;
+use asvz::lesson::LessonID;
 
 use crate::state::State;
 

@@ -1,15 +1,16 @@
-use crate::asvz::api::lesson::{LessonData, LessonError};
-use crate::asvz::api::search::EventList;
-use crate::asvz::api::sport::SportSearch;
-use crate::asvz::error::AsvzError;
-use crate::cmd::LessonID;
+use std::collections::HashMap;
+use std::str::FromStr;
+
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::Client;
-use std::collections::HashMap;
+use reqwest_middleware::ClientWithMiddleware;
 use tracing::{instrument, trace, warn};
 use url::Url;
-use reqwest_middleware::ClientWithMiddleware;
+
+use crate::api::lesson::{LessonData, LessonError};
+use crate::api::search::EventList;
+use crate::api::sport::SportSearch;
+use crate::error::AsvzError;
 
 lazy_static! {
     static ref LOCATION_URL_RE: Regex = Regex::new("/anlage/([0-9]+)-").unwrap();
@@ -20,8 +21,34 @@ lazy_static! {
         Url::parse("https://asvz.ch/asvz_api/sport_search?_format=json&limit=999").unwrap();
 }
 
+#[derive(Debug, Clone)]
+pub struct LessonID(String);
+
+impl LessonID {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl FromStr for LessonID {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            Err("You need to supply a non-empty lesson_id!".to_string())
+        } else if u64::from_str(s).is_err() {
+            Err("A lesson_id may only contain numbers!".to_string())
+        } else {
+            Ok(Self(s.to_string()))
+        }
+    }
+}
+
 #[instrument(skip(client))]
-pub async fn lesson_data(client: &ClientWithMiddleware, id: &LessonID) -> Result<LessonData, AsvzError> {
+pub async fn lesson_data(
+    client: &ClientWithMiddleware,
+    id: &LessonID,
+) -> Result<LessonData, AsvzError> {
     trace!("fetching lesson data");
     let url = format!(
         "https://schalter.asvz.ch/tn-api/api/Lessons/{}",
@@ -88,7 +115,9 @@ pub async fn search_data(
     Ok(event_list)
 }
 
-pub async fn get_sport_data(client: &ClientWithMiddleware) -> Result<HashMap<String, String>, AsvzError> {
+pub async fn get_sport_data(
+    client: &ClientWithMiddleware,
+) -> Result<HashMap<String, String>, AsvzError> {
     trace!("get_sport_data");
     let sport_search: SportSearch = client
         .get(SPORT_SEARCH_URL.clone())

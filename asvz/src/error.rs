@@ -1,7 +1,7 @@
 use thiserror::Error;
 use url::ParseError;
 
-use crate::asvz::api::lesson::LessonError;
+use crate::api::lesson::LessonError;
 
 #[derive(Error, Debug)]
 pub enum AsvzError {
