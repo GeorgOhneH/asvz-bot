@@ -68,7 +68,7 @@ async fn enroll_once(
 ) -> Result<ExistStatus, RequestError> {
     trace!("enroll once");
     let enroll_url = format!(
-        "https://schalter.asvz.ch/tn-api/api/Lessons/{}/enroll",
+        "https://schalter.asvz.ch/tn-api/api/Lessons/{}/Enrollment",
         id.as_str()
     );
     let mut token = ret_on_err!(
