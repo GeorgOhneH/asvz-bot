@@ -25,7 +25,7 @@ macro_rules! get_or_return {
     }
 }
 
-#[proc_macro_derive(BotCommand, attributes(command))]
+#[proc_macro_derive(BotCommands, attributes(command))]
 pub fn derive_telegram_command_enum(tokens: TokenStream) -> TokenStream {
     let input = parse_macro_input!(tokens as DeriveInput);
 
@@ -84,7 +84,7 @@ pub fn derive_telegram_command_enum(tokens: TokenStream) -> TokenStream {
     let fn_parse = impl_parse(&variant_infos, &command_enum, &vec_impl_create);
 
     let trait_impl = quote! {
-        impl teloxide::utils::command::BotCommand for #ident {
+        impl crate::cmd::BotCommands for #ident {
             #fn_descriptions
             #fn_parse
         }
@@ -129,10 +129,7 @@ fn impl_parse(
     let matching_values = infos.iter().map(|c| c.get_matched_value(global));
 
     quote! {
-         fn parse<N>(s: &str, bot_name: N) -> Result<Self, teloxide::utils::command::ParseError>
-         where
-              N: Into<String>
-         {
+         fn parse(s: &str, bot_name: &str) -> Result<Self, teloxide::utils::command::ParseError> {
               use std::str::FromStr;
               use teloxide::utils::command::ParseError;
 
@@ -140,7 +137,6 @@ fn impl_parse(
               let mut splited = words.next().expect("First item will be always.").split('@');
               let command_raw = splited.next().expect("First item will be always.");
               let bot = splited.next();
-              let bot_name = bot_name.into();
               match bot {
                   Some(name) if name == bot_name => {}
                   None => {}

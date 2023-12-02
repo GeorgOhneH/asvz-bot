@@ -4,7 +4,7 @@ use std::time::Duration;
 use reqwest::{Client, StatusCode};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
-use reqwest_tracing::TracingMiddleware;
+use reqwest_tracing::{DefaultSpanBackend, TracingMiddleware};
 use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
@@ -180,7 +180,7 @@ async fn enroll_once(
 fn build_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
     ClientBuilder::new(Client::builder().cookie_store(true).build().unwrap())
-        .with(TracingMiddleware)
+        .with(TracingMiddleware::<DefaultSpanBackend>::new())
         .with(RetryTransientMiddleware::new_with_policy(retry_policy))
         .build()
 }

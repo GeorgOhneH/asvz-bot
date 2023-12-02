@@ -14,7 +14,7 @@ use crate::cmd::{Password, Username};
 use crate::job_err::JobError;
 use crate::job_fns;
 use crate::job_update_cx::JobUpdateCx;
-use crate::user::UserId;
+use crate::user::{BotCtx, UserId};
 
 #[derive(Debug)]
 pub struct Job {
@@ -27,16 +27,16 @@ impl Job {
     pub fn new(
         kind: JobKind,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> Self {
-        JobBuilder::new(kind, user_id, cx).build()
+        JobBuilder::new(kind, user_id, bot).build()
     }
     pub fn builder(
         kind: JobKind,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> JobBuilder {
-        JobBuilder::new(kind, user_id, cx)
+        JobBuilder::new(kind, user_id, bot)
     }
 }
 
@@ -52,7 +52,7 @@ pub struct JobBuilder {
     kind: JobKind,
     retry_count: usize,
     user_id: UserId,
-    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    bot: BotCtx,
     pre_msg: Option<String>,
 }
 
@@ -60,12 +60,12 @@ impl JobBuilder {
     pub fn new(
         kind: JobKind,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> Self {
         Self {
             kind,
             user_id,
-            cx,
+            bot,
             retry_count: 0,
             pre_msg: None,
         }
@@ -82,18 +82,18 @@ impl JobBuilder {
     }
 
     pub fn build(self) -> Job {
-        let fut = self.kind.clone().to_fut(self.cx.clone());
+        let fut = self.kind.clone().to_fut(self.bot.clone());
         let handle = if let Some(pre_msg) = self.pre_msg {
-            let cx_clone = self.cx.clone();
+            let bot_clone = self.bot.clone();
             let fut = async move {
-                job_fns::msg_user(&cx_clone, pre_msg).await?;
+                job_fns::msg_user(&bot_clone, pre_msg).await?;
                 fut.await
             };
             tokio::spawn(job_fns::utils::attach_ctx(
                 fut,
                 self.user_id,
                 self.kind.clone(),
-                self.cx,
+                self.bot,
                 self.retry_count,
             ))
         } else {
@@ -101,7 +101,7 @@ impl JobBuilder {
                 fut,
                 self.user_id,
                 self.kind.clone(),
-                self.cx,
+                self.bot,
                 self.retry_count,
             ))
         };
@@ -129,18 +129,18 @@ impl JobKind {
 
     pub fn to_fut(
         self,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> impl Future<Output = Result<(), RequestError>> {
         match self {
             Self::Notify(id) => {
-                let job_cx = JobUpdateCx::new(cx, id.clone());
+                let job_cx = JobUpdateCx::new(bot, id.clone());
                 async move {
                     job_fns::utils::wrap_exit_status(&job_cx, job_fns::notify(&job_cx, id)).await
                 }
                 .boxed()
             }
             Self::NotifyWeekly(id) => {
-                let job_cx = JobUpdateCx::new(cx, id.clone());
+                let job_cx = JobUpdateCx::new(bot, id.clone());
                 async move {
                     job_fns::utils::wrap_exit_status(&job_cx, job_fns::notify_weekly(&job_cx, id))
                         .await
@@ -148,7 +148,7 @@ impl JobKind {
                 .boxed()
             }
             Self::Enroll(id, username, password) => {
-                let job_cx = JobUpdateCx::new(cx, id.clone());
+                let job_cx = JobUpdateCx::new(bot, id.clone());
                 async move {
                     job_fns::utils::wrap_exit_status(
                         &job_cx,
@@ -159,7 +159,7 @@ impl JobKind {
                 .boxed()
             }
             Self::EnrollWeekly(id, username, password) => {
-                let job_cx = JobUpdateCx::new(cx, id.clone());
+                let job_cx = JobUpdateCx::new(bot, id.clone());
                 async move {
                     job_fns::utils::wrap_exit_status(
                         &job_cx,
@@ -171,10 +171,10 @@ impl JobKind {
             }
             Self::Internal(internal) => match internal {
                 InternalJob::MsgUser(msg) => {
-                    async move { job_fns::msg_user(&cx, msg.clone()).await }.boxed()
+                    async move { job_fns::msg_user(&bot, msg.clone()).await }.boxed()
                 }
                 InternalJob::DeleteMsgUser(msg) => {
-                    async move { job_fns::reply_and_del(&cx, msg.clone()).await }.boxed()
+                    async move { job_fns::reply_and_del(&bot, msg.clone()).await }.boxed()
                 }
             },
         }

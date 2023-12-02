@@ -47,7 +47,7 @@ async fn run() {
 
     info!("Starting Bot");
 
-    let bot = Bot::from_env().auto_send();
+    let bot = Bot::from_env();
     let mut state = State::new();
 
     let mut bot_update = update_listeners::polling_default(bot.clone()).await;
@@ -60,11 +60,7 @@ async fn run() {
                 match update {
                     Ok(update) => {
                         if let UpdateKind::Message(msg) = update.kind {
-                            let cx = Arc::new(UpdateWithCx {
-                                requester: bot.clone(),
-                                update: msg,
-                            });
-                            state.handle_update(cx);
+                            state.handle_update(bot.clone(), msg);
                         }
                     }
                     Err(err) => state.handle_req_err(err),

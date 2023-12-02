@@ -8,7 +8,7 @@ use crate::job::JobKind;
 use crate::job_err::JobError;
 use crate::job_fns::ExistStatus;
 use crate::job_update_cx::JobUpdateCx;
-use crate::user::UserId;
+use crate::user::{BotCtx, UserId};
 
 pub async fn wrap_exit_status(
     cx: &JobUpdateCx,
@@ -29,9 +29,9 @@ pub async fn attach_ctx<T>(
     fut: impl Future<Output = Result<T, RequestError>>,
     user_id: UserId,
     job_kind: JobKind,
-    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    bot: BotCtx,
     retry_count: usize,
 ) -> Result<T, JobError> {
     fut.await
-        .map_err(|err| JobError::new(err, user_id, job_kind, cx, retry_count))
+        .map_err(|err| JobError::new(err, user_id, job_kind, bot, retry_count))
 }

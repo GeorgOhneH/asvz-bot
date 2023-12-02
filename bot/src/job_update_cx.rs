@@ -4,22 +4,23 @@ use teloxide::prelude::*;
 use teloxide::RequestError;
 
 use asvz::lesson::LessonID;
+use crate::user::BotCtx;
 
 pub struct JobUpdateCx {
-    cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    bot: BotCtx,
     id: LessonID,
 }
 
 impl JobUpdateCx {
-    pub fn new(cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>, id: LessonID) -> Self {
-        Self { cx, id }
+    pub fn new(bot: BotCtx, id: LessonID) -> Self {
+        Self { bot, id }
     }
 
     fn transform_msg(&self, text: &str) -> String {
         format!("[{}] {}", self.id.as_str(), text)
     }
 
-    pub async fn answer<T: Into<String>>(&self, text: T) -> Result<Message, RequestError> {
-        self.cx.answer(self.transform_msg(&text.into())).await
+    pub async fn answer<T: Into<String>>(&self, text: T) -> Result<(), RequestError> {
+        self.bot.answer(self.transform_msg(&text.into())).await
     }
 }

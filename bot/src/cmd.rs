@@ -1,9 +1,10 @@
 use std::fmt;
 use std::fmt::Formatter;
 use std::str::FromStr;
+use teloxide::utils::command::ParseError;
 
 use asvz::lesson::LessonID;
-use bot_derive::BotCommand;
+use bot_derive::BotCommands;
 
 use crate::user::UrlAction;
 
@@ -55,7 +56,12 @@ impl FromStr for Password {
     }
 }
 
-#[derive(Debug, BotCommand)]
+pub trait BotCommands: Sized {
+    fn parse(s: &str, bot_username: &str) -> Result<Self, ParseError>;
+    fn descriptions() -> String;
+}
+
+#[derive(Debug, bot_derive::BotCommands)]
 #[command(
     rename = "lowercase",
     description = "The following commands are supported:"

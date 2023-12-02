@@ -1,9 +1,37 @@
 use std::str::FromStr;
+use teloxide::Bot;
+use teloxide::prelude::*;
+use teloxide::types::MessageId;
 
 use crate::cmd::{Password, Username};
 
+
+#[derive(Clone)]
+pub struct BotCtx {
+    bot: Bot,
+    chat_id: ChatId,
+    msg_id: MessageId,
+}
+
+impl BotCtx {
+    pub fn new(bot: Bot, chat_id: ChatId, msg_id: MessageId) -> Self {
+        Self {
+            bot, chat_id, msg_id,
+        }
+    }
+
+    pub async fn answer(&self, text: String) -> ResponseResult<()>  {
+        self.bot.send_message(self.chat_id, text).await?;
+        Ok(())
+    }
+
+    pub async fn delete_message(&self) -> ResponseResult<()>  {
+        self.bot.delete_message(self.chat_id, self.msg_id).await?;
+        Ok(())
+    }
+}
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
-pub struct UserId(pub i64);
+pub struct UserId(pub u64);
 
 #[derive(Debug)]
 pub struct UserState {

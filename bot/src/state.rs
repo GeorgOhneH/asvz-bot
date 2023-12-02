@@ -14,14 +14,15 @@ use regex::Regex;
 use teloxide::adaptors::AutoSend;
 use teloxide::types::{MediaKind, MessageKind};
 use teloxide::utils::command::ParseError;
-use teloxide::{prelude::*, utils::command::BotCommand, RequestError};
+use teloxide::{prelude::*, RequestError};
 use tokio::task::JoinError;
 use tracing::{error, instrument, trace};
+use crate::cmd::BotCommands;
 
 use crate::cmd::Command;
 use crate::job::{InternalJob, Job, JobKind};
 use crate::job_err::JobError;
-use crate::user::{LoginCredentials, UrlAction, UserId, UserState};
+use crate::user::{BotCtx, LoginCredentials, UrlAction, UserId, UserState};
 use crate::BOT_NAME;
 
 static START_MSG: &str = r"Welcome to the ASVZ telegram bot.
@@ -98,16 +99,19 @@ impl State {
         count
     }
 
-    pub fn handle_update(&mut self, cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>) {
-        if let Some((msg, user_id)) = extract_id_text(&cx.update) {
+    pub fn handle_update(&mut self, bot: Bot, msg: Message) {
+        let chat_id = msg.chat.id;
+        let msg_id = msg.id;
+        let bot_ctx = BotCtx::new(bot, chat_id, msg_id);
+        if let Some((msg, user_id)) = extract_id_text(&msg) {
             let job = match Command::parse(msg, BOT_NAME) {
-                Ok(cmd) => self.handle_cmd(cmd, user_id, cx),
+                Ok(cmd) => self.handle_cmd(cmd, user_id, bot_ctx),
                 Err(err) => {
                     if let Some(caps) = LESSON_URL_RE.captures(msg) {
                         let lesson_id = LessonID::from_str(&caps[1]).expect("Captures non number");
-                        self.handle_url(lesson_id, user_id, cx)
+                        self.handle_url(lesson_id, user_id, bot_ctx)
                     } else {
-                        self.handle_cmd_err(err, user_id, cx)
+                        self.handle_cmd_err(err, user_id, bot_ctx)
                     }
                 }
             };
@@ -119,7 +123,7 @@ impl State {
     pub fn handle_req_err(&mut self, err: RequestError) {
         error!("Got RequestError");
         match err {
-            RequestError::RetryAfter(wait) => sleep(Duration::from_secs(wait as u64 + 5)),
+            RequestError::RetryAfter(wait) => sleep(wait + Duration::from_secs(5)),
             _ => (),
         };
     }
@@ -131,23 +135,23 @@ impl State {
             source,
             user_id,
             job_kind,
-            cx,
+            bot,
             retry_count,
         } = err;
         self.handle_req_err(source);
-        let job = Job::builder(job_kind, user_id, cx)
+        let job = Job::builder(job_kind, user_id, bot)
             .pre_msg("An unexpected error occurred. Restarting your Job")
             .retry_count(retry_count + 1)
             .build();
         self.jobs.push(job)
     }
 
-    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
+    #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
     pub fn handle_cmd(
         &mut self,
         cmd: Command,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx
     ) -> Job {
         trace!("new cmd");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
@@ -204,15 +208,15 @@ impl State {
             }
         };
 
-        Job::new(job_kind, user_id, cx)
+        Job::new(job_kind, user_id, bot)
     }
 
-    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
+    #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
     fn handle_cmd_err(
         &mut self,
         err: ParseError,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> Job {
         trace!("new cmd err");
         let msg = match err {
@@ -242,15 +246,15 @@ impl State {
         };
 
         let kind = InternalJob::MsgUser(msg).into();
-        Job::new(kind, user_id, cx)
+        Job::new(kind, user_id, bot)
     }
 
-    #[instrument(skip(self, cx), fields(user_state = ?self.users.get(&user_id)))]
+    #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
     pub fn handle_url(
         &mut self,
         lesson_id: LessonID,
         user_id: UserId,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
     ) -> Job {
         trace!("new lesson url");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
@@ -261,20 +265,20 @@ impl State {
                 let msg = "Found lesson url. Starting an enrollment job. \
                 If you wanted to get notified you can change \
                 the default behavior. See /help.";
-                Job::builder(kind, user_id, cx).pre_msg(msg).build()
+                Job::builder(kind, user_id, bot).pre_msg(msg).build()
             }
             (UrlAction::Default | UrlAction::Notify, None) | (UrlAction::Notify, Some(_)) => {
                 let kind = JobKind::Notify(lesson_id);
                 let msg = "Found lesson url. Starting a notification job. \
                     If you wanted to enroll you can change \
                     the default behavior. See /help.";
-                Job::builder(kind, user_id, cx).pre_msg(msg).build()
+                Job::builder(kind, user_id, bot).pre_msg(msg).build()
             }
             (UrlAction::Enroll, None) => {
                 let msg =
                     "I can't enroll you without you being logged in. See /help for more info.";
                 let kind = InternalJob::MsgUser(msg.to_string());
-                Job::builder(kind.into(), user_id, cx).pre_msg(msg).build()
+                Job::builder(kind.into(), user_id, bot).pre_msg(msg).build()
             }
         }
     }
@@ -284,7 +288,7 @@ fn extract_id_text(msg: &Message) -> Option<(&str, UserId)> {
     match &msg.kind {
         MessageKind::Common(msg_common) => match (&msg_common.media_kind, &msg_common.from) {
             (MediaKind::Text(txt), Some(user)) if !user.is_bot => {
-                Some((&txt.text, UserId(user.id)))
+                Some((&txt.text, UserId(user.id.0)))
             }
             _ => None,
         },

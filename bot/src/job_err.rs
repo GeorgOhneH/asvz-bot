@@ -3,18 +3,17 @@ use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
 use serde::Serializer;
-use teloxide::dispatching::UpdateWithCx;
 use teloxide::prelude::*;
 use teloxide::{Bot, RequestError};
 
 use crate::job::JobKind;
-use crate::user::UserId;
+use crate::user::{BotCtx, UserId};
 
 pub struct JobError {
     pub source: RequestError,
     pub user_id: UserId,
     pub job_kind: JobKind,
-    pub cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+    pub bot: BotCtx,
     pub retry_count: usize,
 }
 
@@ -33,14 +32,14 @@ impl JobError {
         source: RequestError,
         user_id: UserId,
         job_kind: JobKind,
-        cx: Arc<UpdateWithCx<AutoSend<Bot>, Message>>,
+        bot: BotCtx,
         retry_count: usize,
     ) -> Self {
         Self {
             source,
             user_id,
             job_kind,
-            cx,
+            bot,
             retry_count,
         }
     }
