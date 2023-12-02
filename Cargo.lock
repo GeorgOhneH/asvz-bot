@@ -93,6 +93,7 @@ dependencies = [
  "futures",
  "html-escape",
  "lazy_static",
+ "log",
  "openssl",
  "regex",
  "reqwest",

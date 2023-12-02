@@ -26,6 +26,7 @@ html-escape = "0.2"
 fastrand = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+log = "0.4.20"
 
 # raspberry pi
 [target.aarch64-unknown-linux-gnu.dependencies]

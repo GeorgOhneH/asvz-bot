@@ -1,11 +1,14 @@
 use std::cmp::max;
 use std::time::Duration;
 
+use asvz::api::enrollment::EnrollmentData;
 use reqwest::{Client, StatusCode};
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Error};
+use reqwest_retry::{
+    default_on_request_failure, default_on_request_success, policies::ExponentialBackoff,
+    RetryTransientMiddleware, Retryable, RetryableStrategy,
+};
 use reqwest_tracing::{DefaultSpanBackend, TracingMiddleware};
-use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
 
@@ -95,7 +98,7 @@ async fn enroll_once(
         trace!("refreshed token");
 
         let current_ts = current_timestamp();
-        let wait_time = max(from_ts - current_ts - 2, 0) as u64;
+        let wait_time = max(from_ts - current_ts, 0) as u64;
         trace!("waiting again for {} seconds", wait_time);
         tokio::time::sleep(Duration::from_secs(wait_time)).await;
 
@@ -116,17 +119,25 @@ async fn enroll_once(
 
             match enroll_response.status() {
                 StatusCode::CREATED => {
+                    if let Ok(enrollment_data) = enroll_response.json::<EnrollmentData>().await {
+                        trace!("enrollment_data: {:?}", enrollment_data);
+                    }
                     return Ok(ExistStatus::success("I successfully enrolled you"));
                 }
                 StatusCode::UNPROCESSABLE_ENTITY => (),
+                StatusCode::TOO_MANY_REQUESTS => {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                }
                 code => {
                     let msg = format!("Got unexpected status code: {}", code);
                     return Ok(ExistStatus::error(msg));
                 }
             }
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
 
+    trace!("trying normal enrollment");
     for count in 0.. {
         let current_ts = current_timestamp();
 
@@ -149,15 +160,15 @@ async fn enroll_once(
 
         match enroll_response.status() {
             StatusCode::CREATED => {
+                if let Ok(enrollment_data) = enroll_response.json::<EnrollmentData>().await {
+                    trace!("enrollment_data: {:?}", enrollment_data);
+                }
                 return Ok(ExistStatus::success("I successfully enrolled you"));
             }
-            StatusCode::UNAUTHORIZED => {
-                token = ret_on_err!(
-                    asvz_login(client, username.as_str(), password.as_str_dangerous()).await,
-                    "Unable to log in"
-                );
-            }
             StatusCode::UNPROCESSABLE_ENTITY => (),
+            StatusCode::TOO_MANY_REQUESTS => {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
             code => {
                 let msg = format!("Got unexpected status code: {}", code);
                 return Ok(ExistStatus::error(msg));
@@ -177,10 +188,39 @@ async fn enroll_once(
     unreachable!()
 }
 
+pub struct EnrollRetryableStrategy;
+
+impl RetryableStrategy for EnrollRetryableStrategy {
+    fn handle(&self, res: &Result<reqwest::Response, Error>) -> Option<Retryable> {
+        match res {
+            Ok(success) => enroll_on_request_success(success),
+            Err(error) => default_on_request_failure(error),
+        }
+    }
+}
+
+pub fn enroll_on_request_success(success: &reqwest::Response) -> Option<Retryable> {
+    let status = success.status();
+    if status.is_server_error() {
+        Some(Retryable::Transient)
+    } else if status.is_client_error() && status != StatusCode::REQUEST_TIMEOUT {
+        Some(Retryable::Fatal)
+    } else if status.is_success() {
+        None
+    } else if status == StatusCode::REQUEST_TIMEOUT {
+        Some(Retryable::Transient)
+    } else {
+        Some(Retryable::Fatal)
+    }
+}
+
 fn build_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
     ClientBuilder::new(Client::builder().cookie_store(true).build().unwrap())
         .with(TracingMiddleware::<DefaultSpanBackend>::new())
-        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .with(RetryTransientMiddleware::new_with_policy_and_strategy(
+            retry_policy,
+            EnrollRetryableStrategy,
+        ))
         .build()
 }

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use teloxide::prelude::*;
 use teloxide::RequestError;
 
-use asvz::lesson::LessonID;
 use crate::user::BotCtx;
+use asvz::lesson::LessonID;
 
 pub struct JobUpdateCx {
     bot: BotCtx,

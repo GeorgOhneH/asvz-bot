@@ -6,18 +6,17 @@ use std::task::Context;
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::cmd::BotCommands;
 use asvz::lesson::LessonID;
 use futures::stream::FuturesUnordered;
 use futures::Stream;
 use lazy_static::lazy_static;
 use regex::Regex;
-use teloxide::adaptors::AutoSend;
 use teloxide::types::{MediaKind, MessageKind};
 use teloxide::utils::command::ParseError;
 use teloxide::{prelude::*, RequestError};
 use tokio::task::JoinError;
 use tracing::{error, instrument, trace};
-use crate::cmd::BotCommands;
 
 use crate::cmd::Command;
 use crate::job::{InternalJob, Job, JobKind};
@@ -147,12 +146,7 @@ impl State {
     }
 
     #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
-    pub fn handle_cmd(
-        &mut self,
-        cmd: Command,
-        user_id: UserId,
-        bot: BotCtx
-    ) -> Job {
+    pub fn handle_cmd(&mut self, cmd: Command, user_id: UserId, bot: BotCtx) -> Job {
         trace!("new cmd");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
         let job_kind = match cmd {
@@ -212,12 +206,7 @@ impl State {
     }
 
     #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
-    fn handle_cmd_err(
-        &mut self,
-        err: ParseError,
-        user_id: UserId,
-        bot: BotCtx,
-    ) -> Job {
+    fn handle_cmd_err(&mut self, err: ParseError, user_id: UserId, bot: BotCtx) -> Job {
         trace!("new cmd err");
         let msg = match err {
             ParseError::UnknownCommand(_) => {
@@ -250,12 +239,7 @@ impl State {
     }
 
     #[instrument(skip(self, bot), fields(user_state = ?self.users.get(&user_id)))]
-    pub fn handle_url(
-        &mut self,
-        lesson_id: LessonID,
-        user_id: UserId,
-        bot: BotCtx,
-    ) -> Job {
+    pub fn handle_url(&mut self, lesson_id: LessonID, user_id: UserId, bot: BotCtx) -> Job {
         trace!("new lesson url");
         let user_state = self.users.entry(user_id).or_insert_with(UserState::new);
 

@@ -6,10 +6,10 @@ use std::sync::Arc;
 
 use futures::stream::StreamExt;
 use reqwest::Client;
-use teloxide::dispatching::update_listeners;
-use teloxide::dispatching::update_listeners::AsUpdateStream;
 use teloxide::prelude::*;
 use teloxide::types::UpdateKind;
+use teloxide::update_listeners;
+use teloxide::update_listeners::AsUpdateStream;
 use tracing::{info, Level};
 use tracing_subscriber::EnvFilter;
 

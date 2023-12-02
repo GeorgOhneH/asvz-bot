@@ -5,7 +5,6 @@ use reqwest::Client;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use reqwest_tracing::{DefaultSpanBackend, TracingMiddleware};
-use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tracing::{instrument, trace};
 

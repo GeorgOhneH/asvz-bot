@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::task::Context;
 
 use futures::FutureExt;
-use teloxide::adaptors::AutoSend;
 use teloxide::{prelude::*, RequestError};
 use tokio::task::{JoinError, JoinHandle};
 
@@ -24,18 +23,10 @@ pub struct Job {
 }
 
 impl Job {
-    pub fn new(
-        kind: JobKind,
-        user_id: UserId,
-        bot: BotCtx,
-    ) -> Self {
+    pub fn new(kind: JobKind, user_id: UserId, bot: BotCtx) -> Self {
         JobBuilder::new(kind, user_id, bot).build()
     }
-    pub fn builder(
-        kind: JobKind,
-        user_id: UserId,
-        bot: BotCtx,
-    ) -> JobBuilder {
+    pub fn builder(kind: JobKind, user_id: UserId, bot: BotCtx) -> JobBuilder {
         JobBuilder::new(kind, user_id, bot)
     }
 }
@@ -57,11 +48,7 @@ pub struct JobBuilder {
 }
 
 impl JobBuilder {
-    pub fn new(
-        kind: JobKind,
-        user_id: UserId,
-        bot: BotCtx,
-    ) -> Self {
+    pub fn new(kind: JobKind, user_id: UserId, bot: BotCtx) -> Self {
         Self {
             kind,
             user_id,
@@ -127,10 +114,7 @@ impl JobKind {
         matches!(self, Self::Internal(_))
     }
 
-    pub fn to_fut(
-        self,
-        bot: BotCtx,
-    ) -> impl Future<Output = Result<(), RequestError>> {
+    pub fn to_fut(self, bot: BotCtx) -> impl Future<Output = Result<(), RequestError>> {
         match self {
             Self::Notify(id) => {
                 let job_cx = JobUpdateCx::new(bot, id.clone());
